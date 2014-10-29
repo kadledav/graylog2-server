@@ -17,6 +17,7 @@
 package org.graylog2.initializers;
 
 import com.codahale.metrics.MetricRegistry;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.util.concurrent.AbstractIdleService;
 import org.graylog2.Configuration;
 import org.graylog2.database.MongoConnection;
@@ -36,17 +37,20 @@ public class MetricsReporterService extends AbstractIdleService {
     private final MetricRegistry metricRegistry;
     private final MongoConnection mongoConnection;
     private final ServerStatus serverStatus;
+    private final ObjectMapper objectMapper;
     private MongoDbMetricsReporter metricsReporter = null;
 
     @Inject
     public MetricsReporterService(Configuration configuration,
                                   MetricRegistry metricRegistry,
                                   MongoConnection mongoConnection,
-                                  ServerStatus serverStatus) {
+                                  ServerStatus serverStatus,
+                                  ObjectMapper objectMapper) {
         this.configuration = configuration;
         this.metricRegistry = metricRegistry;
         this.mongoConnection = mongoConnection;
         this.serverStatus = serverStatus;
+        this.objectMapper = objectMapper;
     }
 
     @Override

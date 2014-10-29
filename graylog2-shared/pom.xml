@@ -166,6 +166,10 @@
             <groupId>com.codahale.metrics</groupId>
             <artifactId>metrics-annotation</artifactId>
         </dependency>
+        <dependency>
+            <groupId>com.codahale.metrics</groupId>
+            <artifactId>metrics-json</artifactId>
+        </dependency>
 
         <dependency>
             <groupId>com.github.stephenc.high-scale-lib</groupId>

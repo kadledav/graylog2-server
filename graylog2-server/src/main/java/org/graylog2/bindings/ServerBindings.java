@@ -30,21 +30,7 @@ import org.graylog2.alerts.AlertSender;
 import org.graylog2.alerts.FormattedEmailAlertSender;
 import org.graylog2.alerts.types.FieldValueAlertCondition;
 import org.graylog2.alerts.types.MessageCountAlertCondition;
-import org.graylog2.bindings.providers.BundleExporterProvider;
-import org.graylog2.bindings.providers.BundleImporterProvider;
-import org.graylog2.bindings.providers.DefaultSecurityManagerProvider;
-import org.graylog2.bindings.providers.EsNodeProvider;
-import org.graylog2.bindings.providers.InputCacheProvider;
-import org.graylog2.bindings.providers.LdapConnectorProvider;
-import org.graylog2.bindings.providers.LdapUserAuthenticatorProvider;
-import org.graylog2.bindings.providers.MongoConnectionProvider;
-import org.graylog2.bindings.providers.OutputCacheProvider;
-import org.graylog2.bindings.providers.RotationStrategyProvider;
-import org.graylog2.bindings.providers.RulesEngineProvider;
-import org.graylog2.bindings.providers.ServerInputRegistryProvider;
-import org.graylog2.bindings.providers.ServerObjectMapperProvider;
-import org.graylog2.bindings.providers.SystemJobFactoryProvider;
-import org.graylog2.bindings.providers.SystemJobManagerProvider;
+import org.graylog2.bindings.providers.*;
 import org.graylog2.buffers.OutputBufferWatermark;
 import org.graylog2.buffers.processors.OutputBufferProcessor;
 import org.graylog2.buffers.processors.ServerProcessBufferProcessor;
@@ -105,7 +91,7 @@ public class ServerBindings extends AbstractModule {
     }
 
     private void bindProviders() {
-        bind(ObjectMapper.class).toProvider(ServerObjectMapperProvider.class);
+        bind(ObjectMapper.class).toProvider(ServerObjectMapperProvider.class).in(Scopes.SINGLETON);
         bind(RotationStrategy.class).toProvider(RotationStrategyProvider.class);
     }
 

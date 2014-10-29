@@ -87,7 +87,7 @@ public class RadioBindings extends AbstractModule {
 
     private void bindProviders() {
         bind(AsyncHttpClient.class).toProvider(AsyncHttpClientProvider.class);
-        bind(ObjectMapper.class).toProvider(ObjectMapperProvider.class);
+        bind(ObjectMapper.class).toProvider(ObjectMapperProvider.class).in(Scopes.SINGLETON);
     }
 
     private void bindTransport() {

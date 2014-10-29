@@ -16,31 +16,34 @@
  */
 package org.graylog2.rest.resources.system;
 
-import com.codahale.metrics.*;
+import com.codahale.metrics.Metric;
+import com.codahale.metrics.MetricRegistry;
 import com.codahale.metrics.annotation.Timed;
+import com.google.common.base.Predicate;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
+import com.google.common.collect.Sets;
 import com.mongodb.BasicDBObject;
 import com.mongodb.DBCursor;
 import com.mongodb.DBObject;
+import com.wordnik.swagger.annotations.*;
 import org.apache.shiro.authz.annotation.RequiresAuthentication;
 import org.apache.shiro.authz.annotation.RequiresPermissions;
 import org.graylog2.database.MongoConnection;
 import org.graylog2.metrics.MetricUtils;
-import com.wordnik.swagger.annotations.*;
 import org.graylog2.rest.resources.RestResource;
 import org.graylog2.rest.resources.system.requests.MetricsReadRequest;
+import org.graylog2.rest.resources.system.responses.MetricNamesResponse;
+import org.graylog2.rest.resources.system.responses.MetricsResponse;
 import org.graylog2.security.RestPermissions;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import javax.annotation.Nullable;
 import javax.inject.Inject;
 import javax.ws.rs.*;
 import javax.ws.rs.core.MediaType;
-import java.util.ArrayList;
-import java.util.Date;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 
 /**
  * @author Lennart Koopmann <lennart@torch.sh>
@@ -66,24 +69,18 @@ public class MetricsResource extends RestResource {
     @ApiOperation(value = "Get all metrics",
                   notes = "Note that this might return a huge result set.")
     @Produces(MediaType.APPLICATION_JSON)
-    public String metrics() {
-        Map<String, Object> result = Maps.newHashMap();
-
-        result.put("metrics", metricRegistry.getMetrics());
-
-        return json(result);
+    public MetricsResponse metrics() {
+        return new MetricsResponse(metricRegistry);
     }
+
 
     @GET @Timed
     @Path("/names")
     @ApiOperation(value = "Get all metrics keys/names")
     @RequiresPermissions(RestPermissions.METRICS_ALLKEYS)
     @Produces(MediaType.APPLICATION_JSON)
-    public String metricNames() {
-        Map<String, Object> result = Maps.newHashMap();
-        result.put("names", metricRegistry.getNames());
-
-        return json(result);
+    public MetricNamesResponse metricNames() {
+        return new MetricNamesResponse(metricRegistry);
     }
 
     @GET @Timed
@@ -93,7 +90,7 @@ public class MetricsResource extends RestResource {
             @ApiResponse(code = 404, message = "No such metric")
     })
     @Produces(MediaType.APPLICATION_JSON)
-    public String singleMetric(@ApiParam(name = "metricName", required = true) @PathParam("metricName") String metricName) {
+    public Metric singleMetric(@ApiParam(name = "metricName", required = true) @PathParam("metricName") String metricName) {
         checkPermission(RestPermissions.METRICS_READ, metricName);
         Metric metric = metricRegistry.getMetrics().get(metricName);
 
@@ -102,7 +99,7 @@ public class MetricsResource extends RestResource {
             throw new WebApplicationException(404);
         }
 
-        return json(metric);
+        return metric;
     }
 
     @POST @Timed
@@ -111,29 +108,21 @@ public class MetricsResource extends RestResource {
     @ApiResponses(value = {
             @ApiResponse(code = 400, message = "Malformed body")
     })
-    public String multipleMetrics(@ApiParam(name = "Requested metrics", required = true) MetricsReadRequest request) {
-        final Map<String, Metric> metrics = metricRegistry.getMetrics();
-
-        List<Map<String, Object>> metricsList = Lists.newArrayList();
+    public MetricsResponse multipleMetrics(@ApiParam(name = "Requested metrics", required = true) final MetricsReadRequest request) {
         if (request.metrics == null) {
             throw new BadRequestException("Metrics cannot be empty");
         }
 
-        for (String name : request.metrics) {
-            if (!isPermitted(RestPermissions.METRICS_READ, name)) {
-                continue;
-            }
+        final MetricsResponse response = new MetricsResponse(metricRegistry);
+        final HashSet<String> requestedMetrics = Sets.newHashSet(request.metrics);
 
-            final Metric metric = metrics.get(name);
-            if (metric != null) {
-                metricsList.add(MetricUtils.map(name, metric));
+        response.setMetricFilter(new Predicate<String>() {
+            @Override
+            public boolean apply(@Nullable String metricName) {
+                return isPermitted(RestPermissions.METRICS_READ, metricName) && requestedMetrics.contains(metricName);
             }
-        }
-
-        Map<String, Object> result = Maps.newHashMap();
-        result.put("metrics", metricsList);
-        result.put("total", metricsList.size());
-        return json(result);
+        });
+        return response;
     }
 
     @GET @Timed

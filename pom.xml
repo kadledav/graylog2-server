@@ -242,6 +242,11 @@
                 <version>${metrics.version}</version>
             </dependency>
             <dependency>
+                <groupId>com.codahale.metrics</groupId>
+                <artifactId>metrics-json</artifactId>
+                <version>${metrics.version}</version>
+            </dependency>
+            <dependency>
                 <groupId>org.reflections</groupId>
                 <artifactId>reflections</artifactId>
                 <version>0.9.9-RC2</version>

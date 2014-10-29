@@ -27,18 +27,11 @@ import javax.inject.Provider;
  * @author Dennis Oelkers <dennis@torch.sh>
  */
 public class ServerObjectMapperProvider extends ObjectMapperProvider implements Provider<ObjectMapper> {
-    private final SimpleModule simpleModule;
-
-    public ServerObjectMapperProvider() {
-        this.simpleModule = new SimpleModule() {{
-            addSerializer(new ObjectIdSerializer());
-        }};
-    }
 
     @Override
-    public ObjectMapper get() {
-        final ObjectMapper objectMapper = super.get();
-        objectMapper.registerModule(simpleModule);
-        return objectMapper;
+    protected void registerModules(ObjectMapper objectMapper) {
+        super.registerModules(objectMapper);
+        objectMapper.registerModule(new SimpleModule().addSerializer(new ObjectIdSerializer()));
     }
+
 }
