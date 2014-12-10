@@ -65,6 +65,8 @@ public class StreamRouter {
     private final TimeLimiter timeLimiter;
 
     final private ConcurrentMap<String, AtomicInteger> faultCounter;
+    private volatile StreamRouterEngine routerEngine = null;
+    private final Object routerEngineLock = new Object();
 
     @Inject
     public StreamRouter(StreamService streamService,
@@ -101,6 +103,16 @@ public class StreamRouter {
     }
 
     public List<Stream> route(final Message msg) {
+        // TODO Initializing this in the constructor does not work yet because of dependencies. (HACK for testing only)
+        if (routerEngine == null) {
+            synchronized (routerEngineLock) {
+                routerEngine = new StreamRouterEngine(getStreams());
+            }
+        }
+        return routerEngine.match(msg);
+    }
+
+    public List<Stream> routeOld(final Message msg) {
         final List<Stream> matches = Lists.newArrayList();
         final List<Stream> streams = getStreams();
         msg.recordCounter(serverStatus, "streams-evaluated", streams.size());
