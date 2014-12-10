@@ -34,11 +34,11 @@ import java.util.Set;
 public class StreamRouterEngine {
     private static final Logger LOG = LoggerFactory.getLogger(StreamRouterEngine.class);
 
-    private final Map<String, List<Rule>> presenceRules = Maps.newConcurrentMap();
-    private final Map<String, List<Rule>> exactRules = Maps.newConcurrentMap();
-    private final Map<String, List<Rule>> greaterRules = Maps.newConcurrentMap();
-    private final Map<String, List<Rule>> smallerRules = Maps.newConcurrentMap();
-    private final Map<String, List<Rule>> regexRules = Maps.newConcurrentMap();
+    private final Map<String, List<Rule>> presenceRules = Maps.newHashMap();
+    private final Map<String, List<Rule>> exactRules = Maps.newHashMap();
+    private final Map<String, List<Rule>> greaterRules = Maps.newHashMap();
+    private final Map<String, List<Rule>> smallerRules = Maps.newHashMap();
+    private final Map<String, List<Rule>> regexRules = Maps.newHashMap();
 
     private final Set<String> presenceFields = Sets.newHashSet();
     private final Set<String> exactFields = Sets.newHashSet();
@@ -82,7 +82,9 @@ public class StreamRouterEngine {
         final Map<String, Object> messageFields = message.getFields();
         final Set<String> messageKeys = messageFields.keySet();
 
-        matchRules(message, Sets.intersection(messageKeys, presenceFields), presenceRules, matches);
+        // Execute the rules ordered by complexity. (fast rules first)
+        matchRules(message, presenceFields, presenceRules, matches);
+        // Only pass an intersection of the rules fields to avoid checking every field! (does not work for presence matching)
         matchRules(message, Sets.intersection(messageKeys, exactFields), exactRules, matches);
         matchRules(message, Sets.intersection(messageKeys, greaterFields), greaterRules, matches);
         matchRules(message, Sets.intersection(messageKeys, smallerFields), smallerRules, matches);
