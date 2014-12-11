@@ -31,6 +31,11 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
+/**
+ * Stream routing engine to select matching streams for a message.
+ *
+ * This class is NOT thread-safe! Use one instance per thread.
+ */
 public class StreamRouterEngine {
     private static final Logger LOG = LoggerFactory.getLogger(StreamRouterEngine.class);
 
@@ -80,6 +85,12 @@ public class StreamRouterEngine {
         }
     }
 
+    /**
+     * Returns a list of matching streams for the given message.
+     *
+     * @param message
+     * @return the list of matching streams
+     */
     public List<Stream> match(Message message) {
         final Map<Stream, StreamMatch> matches = Maps.newHashMap();
         final List<Stream> result = Lists.newArrayList();
@@ -199,6 +210,10 @@ public class StreamRouterEngine {
         }
     }
 
+    /**
+     * Contains matching results for a stream. This is useful for testing to see if a stream matches and which
+     * rules matched.
+     */
     public static class StreamTestMatch {
         private final Stream stream;
         private final List<Rule> rules = Lists.newArrayList();
