@@ -17,9 +17,19 @@
 
 package org.graylog2.streams;
 
+import com.codahale.metrics.InstrumentedExecutorService;
+import com.codahale.metrics.InstrumentedThreadFactory;
+import com.codahale.metrics.MetricRegistry;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Sets;
+import com.google.common.util.concurrent.SimpleTimeLimiter;
+import com.google.common.util.concurrent.ThreadFactoryBuilder;
+import com.google.common.util.concurrent.TimeLimiter;
+import com.google.inject.Inject;
+import com.google.inject.assistedinject.Assisted;
+import com.google.inject.assistedinject.AssistedInject;
+import org.graylog2.Configuration;
 import org.graylog2.plugin.Message;
 import org.graylog2.plugin.streams.Stream;
 import org.graylog2.plugin.streams.StreamRule;
@@ -30,6 +40,9 @@ import org.slf4j.LoggerFactory;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ThreadFactory;
 
 /**
  * Stream routing engine to select matching streams for a message.
@@ -40,6 +53,9 @@ public class StreamRouterEngine {
     private static final Logger LOG = LoggerFactory.getLogger(StreamRouterEngine.class);
 
     private final List<Stream> streams;
+    private final Configuration configuration;
+    private final MetricRegistry metricRegistry;
+    private final TimeLimiter timeLimiter;
 
     private final Map<String, List<Rule>> presenceRules = Maps.newHashMap();
     private final Map<String, List<Rule>> exactRules = Maps.newHashMap();
@@ -53,8 +69,18 @@ public class StreamRouterEngine {
     private final Set<String> smallerFields = Sets.newHashSet();
     private final Set<String> regexFields = Sets.newHashSet();
 
-    public StreamRouterEngine(List<Stream> streams) {
+    public interface Factory {
+        public StreamRouterEngine create(List<Stream> streams);
+    }
+
+    @Inject
+    public StreamRouterEngine(@Assisted List<Stream> streams,
+                              Configuration configuration,
+                              MetricRegistry metricRegistry) {
+        this.configuration = configuration;
         this.streams = streams;
+        this.metricRegistry = metricRegistry;
+        this.timeLimiter = new SimpleTimeLimiter(executorService());
 
         for (final Stream stream : streams) {
             for (final StreamRule streamRule : stream.getStreamRules()) {
@@ -83,6 +109,17 @@ public class StreamRouterEngine {
                 }
             }
         }
+    }
+
+    private ExecutorService executorService() {
+        return new InstrumentedExecutorService(Executors.newCachedThreadPool(threadFactory()), metricRegistry);
+    }
+
+    private ThreadFactory threadFactory() {
+        return new InstrumentedThreadFactory(new ThreadFactoryBuilder()
+                .setNameFormat("stream-router-%d")
+                .setDaemon(true)
+                .build(), metricRegistry);
     }
 
     /**

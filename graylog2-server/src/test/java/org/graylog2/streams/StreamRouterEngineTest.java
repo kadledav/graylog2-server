@@ -17,15 +17,19 @@
 
 package org.graylog2.streams;
 
+import com.codahale.metrics.MetricRegistry;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Lists;
 import org.bson.types.ObjectId;
+import org.graylog2.Configuration;
 import org.graylog2.plugin.Message;
 import org.graylog2.plugin.streams.Stream;
 import org.graylog2.plugin.streams.StreamRule;
 import org.graylog2.plugin.streams.StreamRuleType;
 import org.graylog2.streams.matchers.StreamRuleMock;
 import org.joda.time.DateTime;
+import org.mockito.Mock;
+import org.mockito.MockitoAnnotations;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
@@ -37,15 +41,22 @@ import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
 
 public class StreamRouterEngineTest {
+    @Mock Configuration configuration;
+    @Mock MetricRegistry metricRegistry;
+
     @BeforeMethod
     public void setUp() throws Exception {
+        MockitoAnnotations.initMocks(this);
+    }
 
+    private StreamRouterEngine newEngine(List<Stream> streams) {
+        return new StreamRouterEngine(streams, configuration, metricRegistry);
     }
 
     @Test
     public void testGetStreams() throws Exception {
         final StreamMock stream = getStreamMock("test");
-        final StreamRouterEngine engine = new StreamRouterEngine(Lists.<Stream>newArrayList(stream));
+        final StreamRouterEngine engine = newEngine(Lists.<Stream>newArrayList(stream));
 
         assertEquals(engine.getStreams(), Lists.newArrayList(stream));
     }
@@ -62,7 +73,7 @@ public class StreamRouterEngineTest {
 
         stream.setStreamRules(Lists.<StreamRule>newArrayList(rule));
 
-        final StreamRouterEngine engine = new StreamRouterEngine(Lists.<Stream>newArrayList(stream));
+        final StreamRouterEngine engine = newEngine(Lists.<Stream>newArrayList(stream));
         final Message message = getMessage();
 
         // Without testfield in the message.
@@ -87,7 +98,7 @@ public class StreamRouterEngineTest {
 
         stream.setStreamRules(Lists.<StreamRule>newArrayList(rule));
 
-        final StreamRouterEngine engine = new StreamRouterEngine(Lists.<Stream>newArrayList(stream));
+        final StreamRouterEngine engine = newEngine(Lists.<Stream>newArrayList(stream));
         final Message message = getMessage();
 
         // With wrong value for field.
@@ -114,7 +125,7 @@ public class StreamRouterEngineTest {
 
         stream.setStreamRules(Lists.<StreamRule>newArrayList(rule));
 
-        final StreamRouterEngine engine = new StreamRouterEngine(Lists.<Stream>newArrayList(stream));
+        final StreamRouterEngine engine = newEngine(Lists.<Stream>newArrayList(stream));
         final Message message = getMessage();
 
         // With smaller value.
@@ -141,7 +152,7 @@ public class StreamRouterEngineTest {
 
         stream.setStreamRules(Lists.<StreamRule>newArrayList(rule));
 
-        final StreamRouterEngine engine = new StreamRouterEngine(Lists.<Stream>newArrayList(stream));
+        final StreamRouterEngine engine = newEngine(Lists.<Stream>newArrayList(stream));
         final Message message = getMessage();
 
         // With bigger value.
@@ -168,7 +179,7 @@ public class StreamRouterEngineTest {
 
         stream.setStreamRules(Lists.<StreamRule>newArrayList(rule));
 
-        final StreamRouterEngine engine = new StreamRouterEngine(Lists.<Stream>newArrayList(stream));
+        final StreamRouterEngine engine = newEngine(Lists.<Stream>newArrayList(stream));
         final Message message = getMessage();
 
         // With non-matching value.
@@ -201,7 +212,7 @@ public class StreamRouterEngineTest {
 
         stream.setStreamRules(Lists.<StreamRule>newArrayList(rule1, rule2));
 
-        final StreamRouterEngine engine = new StreamRouterEngine(Lists.<Stream>newArrayList(stream));
+        final StreamRouterEngine engine = newEngine(Lists.<Stream>newArrayList(stream));
 
         // Without testfield1 and testfield2 in the message.
         final Message message1 = getMessage();
@@ -252,7 +263,7 @@ public class StreamRouterEngineTest {
         stream1.setStreamRules(Lists.<StreamRule>newArrayList(rule1, rule2));
         stream2.setStreamRules(Lists.<StreamRule>newArrayList(rule3));
 
-        final StreamRouterEngine engine = new StreamRouterEngine(Lists.<Stream>newArrayList(stream1, stream2));
+        final StreamRouterEngine engine = newEngine(Lists.<Stream>newArrayList(stream1, stream2));
 
         // Without testfield1 and testfield2 in the message.
         final Message message1 = getMessage();
@@ -305,7 +316,7 @@ public class StreamRouterEngineTest {
 
         stream.setStreamRules(Lists.<StreamRule>newArrayList(rule1, rule2));
 
-        final StreamRouterEngine engine = new StreamRouterEngine(Lists.<Stream>newArrayList(stream));
+        final StreamRouterEngine engine = newEngine(Lists.<Stream>newArrayList(stream));
 
         // Without testfield1 and testfield2 in the message.
         final Message message1 = getMessage();
@@ -351,7 +362,8 @@ public class StreamRouterEngineTest {
 
         stream.setStreamRules(Lists.<StreamRule>newArrayList(rule1, rule2));
 
-        final StreamRouterEngine engine = new StreamRouterEngine(Lists.<Stream>newArrayList(stream));
+        final StreamRouterEngine engine = newEngine(Lists.<Stream>newArrayList(stream));
+
 
         // Without testfield1 and testfield2 in the message.
         final Message message1 = getMessage();

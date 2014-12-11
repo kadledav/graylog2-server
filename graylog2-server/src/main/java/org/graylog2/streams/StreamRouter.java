@@ -86,6 +86,7 @@ public class StreamRouter {
                         Configuration configuration,
                         NotificationService notificationService,
                         ServerStatus serverStatus,
+                        StreamRouterEngine.Factory routerEngineFactory,
                         @Named("daemonScheduler") ScheduledExecutorService scheduler) {
         this.streamService = streamService;
         this.streamRuleService = streamRuleService;
@@ -97,7 +98,7 @@ public class StreamRouter {
         this.executor = executorService();
         this.timeLimiter = new SimpleTimeLimiter(executor);
 
-        final StreamRouterEngineUpdater streamRouterEngineUpdater = new StreamRouterEngineUpdater(routerEngine, streamService);
+        final StreamRouterEngineUpdater streamRouterEngineUpdater = new StreamRouterEngineUpdater(routerEngine, routerEngineFactory, streamService);
         this.routerEngine.set(streamRouterEngineUpdater.getNewEngine());
         scheduler.scheduleAtFixedRate(streamRouterEngineUpdater, 0, 1, TimeUnit.SECONDS);
     }
@@ -273,10 +274,14 @@ public class StreamRouter {
 
     private class StreamRouterEngineUpdater implements Runnable {
         private final AtomicReference<StreamRouterEngine> routerEngine;
+        private final StreamRouterEngine.Factory engineFactory;
         private final StreamService streamService;
 
-        public StreamRouterEngineUpdater(AtomicReference<StreamRouterEngine> routerEngine, StreamService streamService) {
+        public StreamRouterEngineUpdater(AtomicReference<StreamRouterEngine> routerEngine,
+                                         StreamRouterEngine.Factory engineFactory,
+                                         StreamService streamService) {
             this.routerEngine = routerEngine;
+            this.engineFactory = engineFactory;
             this.streamService = streamService;
         }
 
@@ -290,7 +295,7 @@ public class StreamRouter {
         }
 
         private StreamRouterEngine getNewEngine() {
-            return new StreamRouterEngine(streamService.loadAllEnabled());
+            return engineFactory.create(streamService.loadAllEnabled());
         }
     }
 }

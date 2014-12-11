@@ -81,14 +81,17 @@ public class StreamResource extends RestResource {
 
     private final StreamService streamService;
     private final StreamRuleService streamRuleService;
+    private final StreamRouterEngine.Factory streamRouterEngineFactory;
     private final ThroughputStats throughputStats;
 
     @Inject
     public StreamResource(StreamService streamService,
                           StreamRuleService streamRuleService,
+                          StreamRouterEngine.Factory streamRouterEngineFactory,
                           ThroughputStats throughputStats) {
         this.streamService = streamService;
         this.streamRuleService = streamRuleService;
+        this.streamRouterEngineFactory = streamRouterEngineFactory;
         this.throughputStats = throughputStats;
     }
 
@@ -259,7 +262,7 @@ public class StreamResource extends RestResource {
         final Stream stream = streamService.load(streamId);
         final Message message = new Message(serialisedMessage.get("message"));
 
-        final StreamRouterEngine streamRouterEngine = new StreamRouterEngine(Lists.newArrayList(stream));
+        final StreamRouterEngine streamRouterEngine = streamRouterEngineFactory.create(Lists.newArrayList(stream));
         final List<StreamRouterEngine.StreamTestMatch> streamTestMatches = streamRouterEngine.testMatch(message);
         final StreamRouterEngine.StreamTestMatch streamTestMatch = streamTestMatches.get(0);
 
