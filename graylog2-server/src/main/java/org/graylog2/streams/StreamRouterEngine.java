@@ -86,6 +86,15 @@ public class StreamRouterEngine {
     }
 
     /**
+     * Returns the list of streams that are processed by the engine.
+     *
+     * @return the list of streams
+     */
+    public List<Stream> getStreams() {
+        return streams;
+    }
+
+    /**
      * Returns a list of matching streams for the given message.
      *
      * @param message

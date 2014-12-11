@@ -43,6 +43,14 @@ public class StreamRouterEngineTest {
     }
 
     @Test
+    public void testGetStreams() throws Exception {
+        final StreamMock stream = getStreamMock("test");
+        final StreamRouterEngine engine = new StreamRouterEngine(Lists.<Stream>newArrayList(stream));
+
+        assertEquals(engine.getStreams(), Lists.newArrayList(stream));
+    }
+
+    @Test
     public void testPresenceMatch() throws Exception {
         final StreamMock stream = getStreamMock("test");
         final StreamRuleMock rule = new StreamRuleMock(ImmutableMap.<String, Object>of(
