@@ -320,6 +320,53 @@ public class StreamRouterEngineTest {
         assertEquals(match, Lists.newArrayList(stream2));
     }
 
+    @Test
+    public void testInvertedRulesMatch() throws Exception {
+        final StreamMock stream = getStreamMock("test");
+        final StreamRuleMock rule1 = new StreamRuleMock(ImmutableMap.<String, Object>of(
+                "_id", new ObjectId(),
+                "field", "testfield1",
+                "value", "1",
+                "type", StreamRuleType.PRESENCE.toInteger(),
+                "stream_id", stream.getId()
+        ));
+        final StreamRuleMock rule2 = new StreamRuleMock(ImmutableMap.<String, Object>of(
+                "_id", new ObjectId(),
+                "field", "testfield2",
+                "inverted", true,
+                "type", StreamRuleType.PRESENCE.toInteger(),
+                "stream_id", stream.getId()
+        ));
+
+        stream.setStreamRules(Lists.<StreamRule>newArrayList(rule1, rule2));
+
+        final StreamRouterEngine engine = new StreamRouterEngine(Lists.<Stream>newArrayList(stream));
+
+        // Without testfield1 and testfield2 in the message.
+        final Message message1 = getMessage();
+
+        assertTrue(engine.match(message1).isEmpty());
+
+        // With testfield1 and testfield2 in the message.
+        final Message message2 = getMessage();
+        message2.addField("testfield1", "testvalue");
+        message2.addField("testfield2", "testvalue");
+
+        assertTrue(engine.match(message2).isEmpty());
+
+        // With testfield1 and not testfield2 in the message.
+        final Message message3 = getMessage();
+        message3.addField("testfield1", "testvalue");
+
+        assertEquals(engine.match(message3), Lists.newArrayList(stream));
+
+        // With testfield2 in the message.
+        final Message message4 = getMessage();
+        message4.addField("testfield2", "testvalue");
+
+        assertTrue(engine.match(message4).isEmpty());
+    }
+
     private StreamMock getStreamMock(String title) {
         return new StreamMock(ImmutableMap.<String, Object>of("_id", new ObjectId(), "title", title));
     }
