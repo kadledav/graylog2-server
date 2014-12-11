@@ -32,7 +32,6 @@ import org.testng.annotations.Test;
 import java.util.List;
 
 import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
 
 public class StreamRouterEngineTest {
@@ -56,19 +55,13 @@ public class StreamRouterEngineTest {
         final StreamRouterEngine engine = new StreamRouterEngine(Lists.<Stream>newArrayList(stream));
         final Message message = getMessage();
 
-        List<Stream> match;
-
         // Without testfield in the message.
-        match = engine.match(message);
-
-        assertTrue(match.isEmpty());
+        assertTrue(engine.match(message).isEmpty());
 
         // With field in the message.
         message.addField("testfield", "testvalue");
 
-        match = engine.match(message);
-
-        assertFalse(match.isEmpty());
+        assertEquals(engine.match(message), Lists.newArrayList(stream));
     }
 
     @Test
@@ -87,21 +80,15 @@ public class StreamRouterEngineTest {
         final StreamRouterEngine engine = new StreamRouterEngine(Lists.<Stream>newArrayList(stream));
         final Message message = getMessage();
 
-        List<Stream> match;
-
         // With wrong value for field.
         message.addField("testfield", "no-testvalue");
 
-        match = engine.match(message);
-
-        assertTrue(match.isEmpty());
+        assertTrue(engine.match(message).isEmpty());
 
         // With matching value for field.
         message.addField("testfield", "testvalue");
 
-        match = engine.match(message);
-
-        assertFalse(match.isEmpty());
+        assertEquals(engine.match(message), Lists.newArrayList(stream));
     }
 
     @Test
@@ -120,21 +107,15 @@ public class StreamRouterEngineTest {
         final StreamRouterEngine engine = new StreamRouterEngine(Lists.<Stream>newArrayList(stream));
         final Message message = getMessage();
 
-        List<Stream> match;
-
         // With smaller value.
         message.addField("testfield", "1");
 
-        match = engine.match(message);
-
-        assertTrue(match.isEmpty());
+        assertTrue(engine.match(message).isEmpty());
 
         // With greater value.
         message.addField("testfield", "2");
 
-        match = engine.match(message);
-
-        assertFalse(match.isEmpty());
+        assertEquals(engine.match(message), Lists.newArrayList(stream));
     }
 
     @Test
@@ -153,21 +134,15 @@ public class StreamRouterEngineTest {
         final StreamRouterEngine engine = new StreamRouterEngine(Lists.<Stream>newArrayList(stream));
         final Message message = getMessage();
 
-        List<Stream> match;
-
         // With bigger value.
         message.addField("testfield", "5");
 
-        match = engine.match(message);
-
-        assertTrue(match.isEmpty());
+        assertTrue(engine.match(message).isEmpty());
 
         // With smaller value.
         message.addField("testfield", "2");
 
-        match = engine.match(message);
-
-        assertFalse(match.isEmpty());
+        assertEquals(engine.match(message), Lists.newArrayList(stream));
     }
 
     @Test
@@ -186,21 +161,15 @@ public class StreamRouterEngineTest {
         final StreamRouterEngine engine = new StreamRouterEngine(Lists.<Stream>newArrayList(stream));
         final Message message = getMessage();
 
-        List<Stream> match;
-
         // With non-matching value.
         message.addField("testfield", "notestvalue");
 
-        match = engine.match(message);
-
-        assertTrue(match.isEmpty());
+        assertTrue(engine.match(message).isEmpty());
 
         // With matching value.
         message.addField("testfield", "testvalue");
 
-        match = engine.match(message);
-
-        assertFalse(match.isEmpty());
+        assertEquals(engine.match(message), Lists.newArrayList(stream));
     }
 
     @Test
@@ -224,31 +193,24 @@ public class StreamRouterEngineTest {
 
         final StreamRouterEngine engine = new StreamRouterEngine(Lists.<Stream>newArrayList(stream));
 
-        List<Stream> match;
-
         // Without testfield1 and testfield2 in the message.
         final Message message1 = getMessage();
-        match = engine.match(message1);
 
-        assertTrue(match.isEmpty());
+        assertTrue(engine.match(message1).isEmpty());
 
         // With testfield1 but no-matching testfield2 in the message.
         final Message message2 = getMessage();
         message2.addField("testfield1", "testvalue");
         message2.addField("testfield2", "no-testvalue");
 
-        match = engine.match(message2);
-
-        assertTrue(match.isEmpty());
+        assertTrue(engine.match(message2).isEmpty());
 
         // With testfield1 and matching testfield2 in the message.
         final Message message3 = getMessage();
         message3.addField("testfield1", "testvalue");
         message3.addField("testfield2", "testvalue2");
 
-        match = engine.match(message3);
-
-        assertFalse(match.isEmpty());
+        assertEquals(engine.match(message3), Lists.newArrayList(stream));
     }
 
     @Test
@@ -282,22 +244,17 @@ public class StreamRouterEngineTest {
 
         final StreamRouterEngine engine = new StreamRouterEngine(Lists.<Stream>newArrayList(stream1, stream2));
 
-        List<Stream> match;
-
         // Without testfield1 and testfield2 in the message.
         final Message message1 = getMessage();
-        match = engine.match(message1);
 
-        assertTrue(match.isEmpty());
+        assertTrue(engine.match(message1).isEmpty());
 
         // With testfield1 and matching testfield2 in the message.
         final Message message2 = getMessage();
         message2.addField("testfield1", "testvalue");
         message2.addField("testfield2", "testvalue2");
 
-        match = engine.match(message2);
-
-        assertEquals(match, Lists.newArrayList(stream1));
+        assertEquals(engine.match(message2), Lists.newArrayList(stream1));
 
         // With testfield1, matching testfield2 and matching testfield3 in the message.
         final Message message3 = getMessage();
@@ -305,7 +262,7 @@ public class StreamRouterEngineTest {
         message3.addField("testfield2", "testvalue2");
         message3.addField("testfield3", "testvalue3");
 
-        match = engine.match(message3);
+        final List<Stream> match = engine.match(message3);
 
         assertTrue(match.contains(stream1));
         assertTrue(match.contains(stream2));
@@ -315,9 +272,7 @@ public class StreamRouterEngineTest {
         final Message message4 = getMessage();
         message4.addField("testfield3", "testvalue3");
 
-        match = engine.match(message4);
-
-        assertEquals(match, Lists.newArrayList(stream2));
+        assertEquals(engine.match(message4), Lists.newArrayList(stream2));
     }
 
     @Test
