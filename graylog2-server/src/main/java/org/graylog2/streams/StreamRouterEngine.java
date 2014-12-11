@@ -117,7 +117,7 @@ public class StreamRouterEngine {
 
     private ThreadFactory threadFactory() {
         return new InstrumentedThreadFactory(new ThreadFactoryBuilder()
-                .setNameFormat("stream-router-%d")
+                .setNameFormat("stream-router-engine-%d")
                 .setDaemon(true)
                 .build(), metricRegistry);
     }
@@ -162,7 +162,7 @@ public class StreamRouterEngine {
 
     /**
      * Returns a list of stream rule matches. Can be used to test streams and stream rule matches.
-     * This is meant for testing, do NOT use in production processing pipeline! (use {@link #match() match} instead)
+     * This is meant for testing, do NOT use in production processing pipeline! (use {@link #match(org.graylog2.plugin.Message) match} instead)
      *
      * @param message the message to match streams on
      */
