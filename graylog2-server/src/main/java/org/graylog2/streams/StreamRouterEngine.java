@@ -34,6 +34,8 @@ import java.util.Set;
 public class StreamRouterEngine {
     private static final Logger LOG = LoggerFactory.getLogger(StreamRouterEngine.class);
 
+    private final List<Stream> streams;
+
     private final Map<String, List<Rule>> presenceRules = Maps.newHashMap();
     private final Map<String, List<Rule>> exactRules = Maps.newHashMap();
     private final Map<String, List<Rule>> greaterRules = Maps.newHashMap();
@@ -47,6 +49,8 @@ public class StreamRouterEngine {
     private final Set<String> regexFields = Sets.newHashSet();
 
     public StreamRouterEngine(List<Stream> streams) {
+        this.streams = streams;
+
         for (final Stream stream : streams) {
             for (final StreamRule streamRule : stream.getStreamRules()) {
                 try {
@@ -99,8 +103,33 @@ public class StreamRouterEngine {
         return result;
     }
 
-    public void testMatch(Message message) {
-        // TODO Implement! Needed for the stream testing REST resource.
+    /**
+     * Returns a list of stream rule matches. Can be used to test streams and stream rule matches.
+     * This is meant for testing, do NOT use in production processing pipeline! (use {@link #match() match} instead)
+     *
+     * @param message the message to match streams on
+     */
+    public List<StreamTestMatch> testMatch(Message message) {
+        final List<StreamTestMatch> matches = Lists.newArrayList();
+
+        for (final Stream stream : streams) {
+            final StreamTestMatch match = new StreamTestMatch(stream);
+
+            for (final StreamRule streamRule : stream.getStreamRules()) {
+                try {
+                    final Rule rule = new Rule(stream, streamRule);
+                    match.addRule(rule);
+                } catch (InvalidStreamRuleTypeException e) {
+                    LOG.warn("Invalid stream rule type. Skipping matching for this rule. " + e.getMessage(), e);
+                }
+            }
+
+            match.matchMessage(message);
+
+            matches.add(match);
+        }
+
+        return matches;
     }
 
     private void matchRules(Message message, Set<String> fields, Map<String, List<Rule>> rules, Map<Stream, StreamMatch> matches) {
@@ -163,6 +192,44 @@ public class StreamRouterEngine {
             } else {
                 return null;
             }
+        }
+
+        public StreamRule getStreamRule() {
+            return rule;
+        }
+    }
+
+    public static class StreamTestMatch {
+        private final Stream stream;
+        private final List<Rule> rules = Lists.newArrayList();
+
+        private final Map<StreamRule, Boolean> matches = Maps.newHashMap();
+
+        public StreamTestMatch(Stream stream) {
+            this.stream = stream;
+        }
+
+        public void addRule(Rule rule) {
+            rules.add(rule);
+        }
+
+        public void matchMessage(Message message) {
+            for (Rule rule : rules) {
+                final Stream match = rule.match(message);
+                matches.put(rule.getStreamRule(), (match != null && match.equals(stream)));
+            }
+        }
+
+        public boolean isMatched() {
+            return !matches.isEmpty() && !matches.values().contains(false);
+        }
+
+        public Stream getStream() {
+            return stream;
+        }
+
+        public Map<StreamRule, Boolean> getMatches() {
+            return matches;
         }
     }
 }
