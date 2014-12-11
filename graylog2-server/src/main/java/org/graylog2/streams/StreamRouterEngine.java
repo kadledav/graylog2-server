@@ -20,6 +20,7 @@ package org.graylog2.streams;
 import com.codahale.metrics.InstrumentedExecutorService;
 import com.codahale.metrics.InstrumentedThreadFactory;
 import com.codahale.metrics.MetricRegistry;
+import com.codahale.metrics.Timer;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Sets;
@@ -54,6 +55,7 @@ public class StreamRouterEngine {
 
     private final List<Stream> streams;
     private final StreamFaultManager streamFaultManager;
+    private final StreamMetrics streamMetrics;
     private final MetricRegistry metricRegistry;
     private final TimeLimiter timeLimiter;
     private final long streamProcessingTimeout;
@@ -77,9 +79,11 @@ public class StreamRouterEngine {
     @Inject
     public StreamRouterEngine(@Assisted List<Stream> streams,
                               StreamFaultManager streamFaultManager,
+                              StreamMetrics streamMetrics,
                               MetricRegistry metricRegistry) {
         this.streams = streams;
         this.streamFaultManager = streamFaultManager;
+        this.streamMetrics = streamMetrics;
         this.metricRegistry = metricRegistry;
         this.timeLimiter = new SimpleTimeLimiter(executorService());
         this.streamProcessingTimeout = streamFaultManager.getStreamProcessingTimeout();
@@ -200,7 +204,11 @@ public class StreamRouterEngine {
     private void matchRules(Message message, Set<String> fields, Map<String, List<Rule>> rules, Map<Stream, StreamMatch> matches) {
         for (String field : fields) {
             for (Rule rule : rules.get(field)) {
-                registerMatch(matches, rule.match(message));
+                final Timer.Context timer = streamMetrics.getExecutionTimer(rule.getStreamRule().getId()).time();
+                final Stream match = rule.match(message);
+
+                timer.stop();
+                registerMatch(matches, match);
             }
         }
     }
@@ -216,8 +224,10 @@ public class StreamRouterEngine {
                 };
 
                 try {
+                    final Timer.Context timer = streamMetrics.getExecutionTimer(rule.getStreamRule().getId()).time();
                     final Stream match = timeLimiter.callWithTimeout(task, streamProcessingTimeout, TimeUnit.MILLISECONDS, true);
 
+                    timer.stop();
                     registerMatch(matches, match);
                 } catch (Exception e) { // Having to catch Exception here is bad! :(
                     timeouts.add(rule.getStream());
@@ -232,6 +242,7 @@ public class StreamRouterEngine {
                 matches.put(match, new StreamMatch(match));
             }
             matches.get(match).increment();
+            streamMetrics.markIncomingMeter(match.getId());
         }
     }
 

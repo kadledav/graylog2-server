@@ -44,6 +44,7 @@ public class StreamRouterEngineTest {
     private MetricRegistry metricRegistry = new MetricRegistry();
 
     @Mock StreamFaultManager streamFaultManager;
+    StreamMetrics streamMetrics = new StreamMetrics(new MetricRegistry());
 
     @BeforeMethod
     public void setUp() throws Exception {
@@ -53,7 +54,7 @@ public class StreamRouterEngineTest {
     }
 
     private StreamRouterEngine newEngine(List<Stream> streams) {
-        return new StreamRouterEngine(streams, streamFaultManager, metricRegistry);
+        return new StreamRouterEngine(streams, streamFaultManager, streamMetrics, metricRegistry);
     }
 
     @Test

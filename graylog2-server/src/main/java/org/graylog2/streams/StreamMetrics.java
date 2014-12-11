@@ -23,6 +23,7 @@ import com.codahale.metrics.Timer;
 import com.google.common.collect.Maps;
 import com.google.inject.Inject;
 import org.graylog2.plugin.streams.Stream;
+import org.graylog2.plugin.streams.StreamRule;
 
 import java.util.Map;
 
@@ -45,11 +46,11 @@ public class StreamMetrics {
         getIncomingMeter(streamId).mark();
     }
 
-    public Timer getExecutionTimer(String streamId) {
-        Timer timer = this.streamExecutionTimers.get(streamId);
+    public Timer getExecutionTimer(String streamRuleId) {
+        Timer timer = this.streamExecutionTimers.get(streamRuleId);
         if (timer == null) {
-            timer = metricRegistry.timer(MetricRegistry.name(Stream.class, streamId, "executionTime"));
-            this.streamExecutionTimers.put(streamId, timer);
+            timer = metricRegistry.timer(MetricRegistry.name(StreamRule.class, streamRuleId, "executionTime"));
+            this.streamExecutionTimers.put(streamRuleId, timer);
         }
 
         return timer;
