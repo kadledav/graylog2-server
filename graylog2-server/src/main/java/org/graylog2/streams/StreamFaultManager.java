@@ -53,6 +53,10 @@ public class StreamFaultManager {
         this.streamProcessingTimeout = configuration.getStreamProcessingTimeout();
     }
 
+    public long getStreamProcessingTimeout() {
+        return streamProcessingTimeout;
+    }
+
     public void registerFailure(final Stream stream) {
         final AtomicInteger faultCount = getFaultCount(stream);
         final int streamFaultCount = faultCount.incrementAndGet();

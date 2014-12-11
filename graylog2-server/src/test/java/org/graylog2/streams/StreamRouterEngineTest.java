@@ -21,7 +21,6 @@ import com.codahale.metrics.MetricRegistry;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Lists;
 import org.bson.types.ObjectId;
-import org.graylog2.Configuration;
 import org.graylog2.plugin.Message;
 import org.graylog2.plugin.streams.Stream;
 import org.graylog2.plugin.streams.StreamRule;
@@ -36,21 +35,25 @@ import org.testng.annotations.Test;
 import java.util.List;
 import java.util.Map;
 
+import static org.mockito.Mockito.when;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
 
 public class StreamRouterEngineTest {
-    @Mock Configuration configuration;
-    @Mock MetricRegistry metricRegistry;
+    private MetricRegistry metricRegistry = new MetricRegistry();
+
+    @Mock StreamFaultManager streamFaultManager;
 
     @BeforeMethod
     public void setUp() throws Exception {
         MockitoAnnotations.initMocks(this);
+
+        when(streamFaultManager.getStreamProcessingTimeout()).thenReturn(10L);
     }
 
     private StreamRouterEngine newEngine(List<Stream> streams) {
-        return new StreamRouterEngine(streams, configuration, metricRegistry);
+        return new StreamRouterEngine(streams, streamFaultManager, metricRegistry);
     }
 
     @Test

@@ -28,8 +28,6 @@ import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import com.google.common.util.concurrent.TimeLimiter;
 import com.google.inject.Inject;
 import com.google.inject.assistedinject.Assisted;
-import com.google.inject.assistedinject.AssistedInject;
-import org.graylog2.Configuration;
 import org.graylog2.plugin.Message;
 import org.graylog2.plugin.streams.Stream;
 import org.graylog2.plugin.streams.StreamRule;
@@ -40,9 +38,11 @@ import org.slf4j.LoggerFactory;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ThreadFactory;
+import java.util.concurrent.TimeUnit;
 
 /**
  * Stream routing engine to select matching streams for a message.
@@ -53,9 +53,10 @@ public class StreamRouterEngine {
     private static final Logger LOG = LoggerFactory.getLogger(StreamRouterEngine.class);
 
     private final List<Stream> streams;
-    private final Configuration configuration;
+    private final StreamFaultManager streamFaultManager;
     private final MetricRegistry metricRegistry;
     private final TimeLimiter timeLimiter;
+    private final long streamProcessingTimeout;
 
     private final Map<String, List<Rule>> presenceRules = Maps.newHashMap();
     private final Map<String, List<Rule>> exactRules = Maps.newHashMap();
@@ -75,12 +76,13 @@ public class StreamRouterEngine {
 
     @Inject
     public StreamRouterEngine(@Assisted List<Stream> streams,
-                              Configuration configuration,
+                              StreamFaultManager streamFaultManager,
                               MetricRegistry metricRegistry) {
-        this.configuration = configuration;
         this.streams = streams;
+        this.streamFaultManager = streamFaultManager;
         this.metricRegistry = metricRegistry;
         this.timeLimiter = new SimpleTimeLimiter(executorService());
+        this.streamProcessingTimeout = streamFaultManager.getStreamProcessingTimeout();
 
         for (final Stream stream : streams) {
             for (final StreamRule streamRule : stream.getStreamRules()) {
@@ -149,7 +151,7 @@ public class StreamRouterEngine {
         matchRules(message, Sets.intersection(messageKeys, exactFields), exactRules, matches);
         matchRules(message, Sets.intersection(messageKeys, greaterFields), greaterRules, matches);
         matchRules(message, Sets.intersection(messageKeys, smallerFields), smallerRules, matches);
-        matchRules(message, Sets.intersection(messageKeys, regexFields), regexRules, matches);
+        matchRulesWithTimeout(message, Sets.intersection(messageKeys, regexFields), regexRules, matches);
 
         for (Map.Entry<Stream, StreamMatch> entry : matches.entrySet()) {
             if (entry.getValue().isMatched()) {
@@ -192,15 +194,40 @@ public class StreamRouterEngine {
     private void matchRules(Message message, Set<String> fields, Map<String, List<Rule>> rules, Map<Stream, StreamMatch> matches) {
         for (String field : fields) {
             for (Rule rule : rules.get(field)) {
-                final Stream match = rule.match(message);
+                registerMatch(matches, rule.match(message));
+            }
+        }
+    }
 
-                if (match != null) {
-                    if (! matches.containsKey(match)) {
-                        matches.put(match, new StreamMatch(match));
+    private void matchRulesWithTimeout(final Message message, Set<String> fields, Map<String, List<Rule>> rules, Map<Stream, StreamMatch> matches) {
+        for (String field : fields) {
+            for (final Rule rule : rules.get(field)) {
+                final Callable<Stream> task = new Callable<Stream>() {
+                    @Override
+                    public Stream call() {
+                        return rule.match(message);
                     }
-                    matches.get(match).increment();
+                };
+
+
+                try {
+                    final Stream match = timeLimiter.callWithTimeout(task, streamProcessingTimeout, TimeUnit.MILLISECONDS, true);
+
+                    registerMatch(matches, match);
+                } catch (Exception e) {
+                    LOG.error("Execution failed", e);
+                    streamFaultManager.registerFailure(rule.getStream());
                 }
             }
+        }
+    }
+
+    private void registerMatch(Map<Stream, StreamMatch> matches, Stream match) {
+        if (match != null) {
+            if (!matches.containsKey(match)) {
+                matches.put(match, new StreamMatch(match));
+            }
+            matches.get(match).increment();
         }
     }
 
@@ -253,6 +280,10 @@ public class StreamRouterEngine {
 
         public StreamRule getStreamRule() {
             return rule;
+        }
+
+        public Stream getStream() {
+            return stream;
         }
     }
 
