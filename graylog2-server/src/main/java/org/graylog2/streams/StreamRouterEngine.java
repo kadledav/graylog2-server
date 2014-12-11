@@ -17,15 +17,12 @@
 
 package org.graylog2.streams;
 
-import com.codahale.metrics.InstrumentedExecutorService;
-import com.codahale.metrics.InstrumentedThreadFactory;
 import com.codahale.metrics.MetricRegistry;
 import com.codahale.metrics.Timer;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Sets;
 import com.google.common.util.concurrent.SimpleTimeLimiter;
-import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import com.google.common.util.concurrent.TimeLimiter;
 import com.google.inject.Inject;
 import com.google.inject.assistedinject.Assisted;
@@ -41,8 +38,6 @@ import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.TimeUnit;
 
 /**
@@ -73,11 +68,12 @@ public class StreamRouterEngine {
     private final Set<String> regexFields = Sets.newHashSet();
 
     public interface Factory {
-        public StreamRouterEngine create(List<Stream> streams);
+        public StreamRouterEngine create(List<Stream> streams, ExecutorService executorService);
     }
 
     @Inject
     public StreamRouterEngine(@Assisted List<Stream> streams,
+                              @Assisted ExecutorService executorService,
                               StreamFaultManager streamFaultManager,
                               StreamMetrics streamMetrics,
                               MetricRegistry metricRegistry) {
@@ -85,7 +81,7 @@ public class StreamRouterEngine {
         this.streamFaultManager = streamFaultManager;
         this.streamMetrics = streamMetrics;
         this.metricRegistry = metricRegistry;
-        this.timeLimiter = new SimpleTimeLimiter(executorService());
+        this.timeLimiter = new SimpleTimeLimiter(executorService);
         this.streamProcessingTimeout = streamFaultManager.getStreamProcessingTimeout();
 
         for (final Stream stream : streams) {
@@ -117,17 +113,6 @@ public class StreamRouterEngine {
         }
     }
 
-    private ExecutorService executorService() {
-        return new InstrumentedExecutorService(Executors.newCachedThreadPool(threadFactory()), metricRegistry);
-    }
-
-    private ThreadFactory threadFactory() {
-        return new InstrumentedThreadFactory(new ThreadFactoryBuilder()
-                .setNameFormat("stream-router-engine-%d")
-                .setDaemon(true)
-                .build(), metricRegistry);
-    }
-
     /**
      * Returns the list of streams that are processed by the engine.
      *
@@ -140,7 +125,7 @@ public class StreamRouterEngine {
     /**
      * Returns a list of matching streams for the given message.
      *
-     * @param message
+     * @param message the message
      * @return the list of matching streams
      */
     public List<Stream> match(Message message) {

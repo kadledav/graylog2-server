@@ -72,6 +72,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.Executors;
 
 @RequiresAuthentication
 @Api(value = "Streams", description = "Manage streams")
@@ -262,7 +263,7 @@ public class StreamResource extends RestResource {
         final Stream stream = streamService.load(streamId);
         final Message message = new Message(serialisedMessage.get("message"));
 
-        final StreamRouterEngine streamRouterEngine = streamRouterEngineFactory.create(Lists.newArrayList(stream));
+        final StreamRouterEngine streamRouterEngine = streamRouterEngineFactory.create(Lists.newArrayList(stream), Executors.newSingleThreadExecutor());
         final List<StreamRouterEngine.StreamTestMatch> streamTestMatches = streamRouterEngine.testMatch(message);
         final StreamRouterEngine.StreamTestMatch streamTestMatch = streamTestMatches.get(0);
 

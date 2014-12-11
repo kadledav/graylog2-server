@@ -91,7 +91,7 @@ public class StreamRouter {
         this.executor = executorService();
         this.timeLimiter = new SimpleTimeLimiter(executor);
 
-        final StreamRouterEngineUpdater streamRouterEngineUpdater = new StreamRouterEngineUpdater(routerEngine, routerEngineFactory, streamService);
+        final StreamRouterEngineUpdater streamRouterEngineUpdater = new StreamRouterEngineUpdater(routerEngine, routerEngineFactory, streamService, executor);
         this.routerEngine.set(streamRouterEngineUpdater.getNewEngine());
         scheduler.scheduleAtFixedRate(streamRouterEngineUpdater, 0, 1, TimeUnit.SECONDS);
     }
@@ -199,13 +199,16 @@ public class StreamRouter {
         private final AtomicReference<StreamRouterEngine> routerEngine;
         private final StreamRouterEngine.Factory engineFactory;
         private final StreamService streamService;
+        private final ExecutorService executorService;
 
         public StreamRouterEngineUpdater(AtomicReference<StreamRouterEngine> routerEngine,
                                          StreamRouterEngine.Factory engineFactory,
-                                         StreamService streamService) {
+                                         StreamService streamService,
+                                         ExecutorService executorService) {
             this.routerEngine = routerEngine;
             this.engineFactory = engineFactory;
             this.streamService = streamService;
+            this.executorService = executorService;
         }
 
         @Override
@@ -218,7 +221,7 @@ public class StreamRouter {
         }
 
         private StreamRouterEngine getNewEngine() {
-            return engineFactory.create(streamService.loadAllEnabled());
+            return engineFactory.create(streamService.loadAllEnabled(), executorService);
         }
     }
 }

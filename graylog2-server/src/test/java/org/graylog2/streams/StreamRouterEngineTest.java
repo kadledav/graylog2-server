@@ -34,6 +34,7 @@ import org.testng.annotations.Test;
 
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.Executors;
 
 import static org.mockito.Mockito.when;
 import static org.testng.Assert.assertEquals;
@@ -54,7 +55,7 @@ public class StreamRouterEngineTest {
     }
 
     private StreamRouterEngine newEngine(List<Stream> streams) {
-        return new StreamRouterEngine(streams, streamFaultManager, streamMetrics, metricRegistry);
+        return new StreamRouterEngine(streams, Executors.newSingleThreadExecutor(), streamFaultManager, streamMetrics, metricRegistry);
     }
 
     @Test
