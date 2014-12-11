@@ -99,6 +99,10 @@ public class StreamRouterEngine {
         return result;
     }
 
+    public void testMatch(Message message) {
+        // TODO Implement! Needed for the stream testing REST resource.
+    }
+
     private void matchRules(Message message, Set<String> fields, Map<String, List<Rule>> rules, Map<Stream, StreamMatch> matches) {
         for (String field : fields) {
             for (Rule rule : rules.get(field)) {
