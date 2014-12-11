@@ -18,7 +18,6 @@ package org.graylog2.streams;
 
 import com.codahale.metrics.InstrumentedExecutorService;
 import com.codahale.metrics.InstrumentedThreadFactory;
-import com.codahale.metrics.Meter;
 import com.codahale.metrics.MetricRegistry;
 import com.codahale.metrics.Timer;
 import com.google.common.collect.Lists;
@@ -60,15 +59,10 @@ import java.util.concurrent.atomic.AtomicReference;
 public class StreamRouter {
     private static final Logger LOG = LoggerFactory.getLogger(StreamRouter.class);
 
-    private final Map<String, Meter> streamIncomingMeters = Maps.newHashMap();
-    private final Map<String, Timer> streamExecutionTimers = Maps.newHashMap();
-    private final Map<String, Meter> streamExceptionMeters = Maps.newHashMap();
-    private final Map<String, Meter> streamRuleTimeoutMeters = Maps.newHashMap();
-    private final Map<String, Meter> streamFaultsExceededMeters = Maps.newHashMap();
-
     protected final StreamService streamService;
     protected final StreamRuleService streamRuleService;
     private final MetricRegistry metricRegistry;
+    private final StreamMetrics streamMetrics;
     private final Configuration configuration;
     private final NotificationService notificationService;
     private final ServerStatus serverStatus;
@@ -83,6 +77,7 @@ public class StreamRouter {
     public StreamRouter(StreamService streamService,
                         StreamRuleService streamRuleService,
                         MetricRegistry metricRegistry,
+                        StreamMetrics streamMetrics,
                         Configuration configuration,
                         NotificationService notificationService,
                         ServerStatus serverStatus,
@@ -91,6 +86,7 @@ public class StreamRouter {
         this.streamService = streamService;
         this.streamRuleService = streamRuleService;
         this.metricRegistry = metricRegistry;
+        this.streamMetrics = streamMetrics;
         this.configuration = configuration;
         this.notificationService = notificationService;
         this.serverStatus = serverStatus;
@@ -132,7 +128,7 @@ public class StreamRouter {
         final int maxFaultCount = configuration.getStreamProcessingMaxFaults();
 
         for (final Stream stream : streams) {
-            final Timer timer = getExecutionTimer(stream.getId());
+            final Timer timer = streamMetrics.getExecutionTimer(stream.getId());
 
             final Callable<Boolean> task = new Callable<Boolean>() {
                 public Boolean call() {
@@ -144,18 +140,18 @@ public class StreamRouter {
             try (final Timer.Context ignored = timer.time()) {
                 final boolean matched = timeLimiter.callWithTimeout(task, timeout, TimeUnit.MILLISECONDS, true);
                 if (matched) {
-                    getIncomingMeter(stream.getId()).mark();
+                    streamMetrics.markIncomingMeter(stream.getId());
                     matches.add(stream);
                 }
             } catch (Exception e) {
                 final AtomicInteger faultCount = getFaultCount(stream.getId());
                 final int streamFaultCount = faultCount.incrementAndGet();
-                getStreamRuleTimeoutMeter(stream.getId()).mark();
+                streamMetrics.markStreamRuleTimeout(stream.getId());
                 if (maxFaultCount > 0 && streamFaultCount >= maxFaultCount) {
                     try {
                         streamService.pause(stream);
                         faultCount.set(0);
-                        getStreamFaultsExceededMeter(stream.getId()).mark();
+                        streamMetrics.markStreamFaultsExceeded(stream.getId());
                         LOG.error("Processing of stream <" + stream.getId() + "> failed to return within " + timeout + "ms for more than " + maxFaultCount + " times. Disabling stream.");
 
                         final Notification notification = notificationService.buildNow()
@@ -217,59 +213,9 @@ public class StreamRouter {
             return matcher.match(msg, rule);
         } catch (Exception e) {
             LOG.debug("Could not match stream rule <" + rule.getType() + "/" + rule.getValue() + ">: " + e.getMessage(), e);
-            getExceptionMeter(rule.getStreamId()).mark();
+            streamMetrics.markExceptionMeter(rule.getStreamId());
             return false;
         }
-    }
-
-    protected Meter getIncomingMeter(String streamId) {
-        Meter meter = this.streamIncomingMeters.get(streamId);
-        if (meter == null) {
-            meter = metricRegistry.meter(MetricRegistry.name(Stream.class, streamId, "incomingMessages"));
-            this.streamIncomingMeters.put(streamId, meter);
-        }
-
-        return meter;
-    }
-
-    protected Timer getExecutionTimer(String streamId) {
-        Timer timer = this.streamExecutionTimers.get(streamId);
-        if (timer == null) {
-            timer = metricRegistry.timer(MetricRegistry.name(Stream.class, streamId, "executionTime"));
-            this.streamExecutionTimers.put(streamId, timer);
-        }
-
-        return timer;
-    }
-
-    protected Meter getExceptionMeter(String streamId) {
-        Meter meter = this.streamExceptionMeters.get(streamId);
-        if (meter == null) {
-            meter = metricRegistry.meter(MetricRegistry.name(Stream.class, streamId, "matchingExceptions"));
-            this.streamExceptionMeters.put(streamId, meter);
-        }
-
-        return meter;
-    }
-
-    protected Meter getStreamRuleTimeoutMeter(String streamId) {
-        Meter meter = this.streamRuleTimeoutMeters.get(streamId);
-        if (meter == null) {
-            meter = metricRegistry.meter(MetricRegistry.name(Stream.class, streamId, "ruleTimeouts"));
-            this.streamRuleTimeoutMeters.put(streamId, meter);
-        }
-
-        return meter;
-    }
-
-    protected Meter getStreamFaultsExceededMeter(String streamId) {
-        Meter meter = this.streamFaultsExceededMeters.get(streamId);
-        if (meter == null) {
-            meter = metricRegistry.meter(MetricRegistry.name(Stream.class, streamId, "faultsExceeded"));
-            this.streamFaultsExceededMeters.put(streamId, meter);
-        }
-
-        return meter;
     }
 
     private class StreamRouterEngineUpdater implements Runnable {
