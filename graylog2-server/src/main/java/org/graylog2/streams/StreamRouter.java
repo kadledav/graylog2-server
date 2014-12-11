@@ -16,12 +16,17 @@
  */
 package org.graylog2.streams;
 
-import com.codahale.metrics.*;
+import com.codahale.metrics.InstrumentedExecutorService;
+import com.codahale.metrics.InstrumentedThreadFactory;
+import com.codahale.metrics.Meter;
+import com.codahale.metrics.MetricRegistry;
+import com.codahale.metrics.Timer;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import com.google.common.util.concurrent.SimpleTimeLimiter;
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import com.google.common.util.concurrent.TimeLimiter;
+import com.google.inject.name.Named;
 import org.graylog2.Configuration;
 import org.graylog2.database.NotFoundException;
 import org.graylog2.database.ValidationException;
@@ -39,11 +44,18 @@ import javax.inject.Inject;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.*;
+import java.util.concurrent.Callable;
+import java.util.concurrent.ConcurrentMap;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.ThreadFactory;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicReference;
 
 /**
- * Routes a GELF message to its streams.
+ * Routes a {@link org.graylog2.plugin.Message} to its streams.
  */
 public class StreamRouter {
     private static final Logger LOG = LoggerFactory.getLogger(StreamRouter.class);
@@ -63,10 +75,9 @@ public class StreamRouter {
 
     private final ExecutorService executor;
     private final TimeLimiter timeLimiter;
+    private final AtomicReference<StreamRouterEngine> routerEngine = new AtomicReference<>(null);
 
     final private ConcurrentMap<String, AtomicInteger> faultCounter;
-    private volatile StreamRouterEngine routerEngine = null;
-    private final Object routerEngineLock = new Object();
 
     @Inject
     public StreamRouter(StreamService streamService,
@@ -74,7 +85,8 @@ public class StreamRouter {
                         MetricRegistry metricRegistry,
                         Configuration configuration,
                         NotificationService notificationService,
-                        ServerStatus serverStatus) {
+                        ServerStatus serverStatus,
+                        @Named("daemonScheduler") ScheduledExecutorService scheduler) {
         this.streamService = streamService;
         this.streamRuleService = streamRuleService;
         this.metricRegistry = metricRegistry;
@@ -84,6 +96,10 @@ public class StreamRouter {
         this.faultCounter = Maps.newConcurrentMap();
         this.executor = executorService();
         this.timeLimiter = new SimpleTimeLimiter(executor);
+
+        final StreamRouterEngineUpdater streamRouterEngineUpdater = new StreamRouterEngineUpdater(routerEngine, streamService);
+        this.routerEngine.set(streamRouterEngineUpdater.getNewEngine());
+        scheduler.scheduleAtFixedRate(streamRouterEngineUpdater, 0, 1, TimeUnit.SECONDS);
     }
 
     private ExecutorService executorService() {
@@ -103,13 +119,7 @@ public class StreamRouter {
     }
 
     public List<Stream> route(final Message msg) {
-        // TODO Initializing this in the constructor does not work yet because of dependencies. (HACK for testing only)
-        if (routerEngine == null) {
-            synchronized (routerEngineLock) {
-                routerEngine = new StreamRouterEngine(getStreams());
-            }
-        }
-        return routerEngine.match(msg);
+        return routerEngine.get().match(msg);
     }
 
     public List<Stream> routeOld(final Message msg) {
@@ -259,5 +269,28 @@ public class StreamRouter {
         }
 
         return meter;
+    }
+
+    private class StreamRouterEngineUpdater implements Runnable {
+        private final AtomicReference<StreamRouterEngine> routerEngine;
+        private final StreamService streamService;
+
+        public StreamRouterEngineUpdater(AtomicReference<StreamRouterEngine> routerEngine, StreamService streamService) {
+            this.routerEngine = routerEngine;
+            this.streamService = streamService;
+        }
+
+        @Override
+        public void run() {
+            final StreamRouterEngine engine = getNewEngine();
+
+            LOG.debug("Updating to new router engine");
+            // TODO Add fingerprint to engine to avoid setting this on every invocation. Compare fingerprint, if not changed, do not update.
+            routerEngine.set(engine);
+        }
+
+        private StreamRouterEngine getNewEngine() {
+            return new StreamRouterEngine(streamService.loadAllEnabled());
+        }
     }
 }
