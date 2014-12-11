@@ -31,6 +31,7 @@ import org.testng.annotations.Test;
 
 import java.util.List;
 
+import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
 
@@ -200,6 +201,123 @@ public class StreamRouterEngineTest {
         match = engine.match(message);
 
         assertFalse(match.isEmpty());
+    }
+
+    @Test
+    public void testMultipleRulesMatch() throws Exception {
+        final StreamMock stream = getStreamMock("test");
+        final StreamRuleMock rule1 = new StreamRuleMock(ImmutableMap.<String, Object>of(
+                "_id", new ObjectId(),
+                "field", "testfield1",
+                "type", StreamRuleType.PRESENCE.toInteger(),
+                "stream_id", stream.getId()
+        ));
+        final StreamRuleMock rule2 = new StreamRuleMock(ImmutableMap.<String, Object>of(
+                "_id", new ObjectId(),
+                "field", "testfield2",
+                "value", "^test",
+                "type", StreamRuleType.REGEX.toInteger(),
+                "stream_id", stream.getId()
+        ));
+
+        stream.setStreamRules(Lists.<StreamRule>newArrayList(rule1, rule2));
+
+        final StreamRouterEngine engine = new StreamRouterEngine(Lists.<Stream>newArrayList(stream));
+
+        List<Stream> match;
+
+        // Without testfield1 and testfield2 in the message.
+        final Message message1 = getMessage();
+        match = engine.match(message1);
+
+        assertTrue(match.isEmpty());
+
+        // With testfield1 but no-matching testfield2 in the message.
+        final Message message2 = getMessage();
+        message2.addField("testfield1", "testvalue");
+        message2.addField("testfield2", "no-testvalue");
+
+        match = engine.match(message2);
+
+        assertTrue(match.isEmpty());
+
+        // With testfield1 and matching testfield2 in the message.
+        final Message message3 = getMessage();
+        message3.addField("testfield1", "testvalue");
+        message3.addField("testfield2", "testvalue2");
+
+        match = engine.match(message3);
+
+        assertFalse(match.isEmpty());
+    }
+
+    @Test
+    public void testMultipleStreamsMatch() throws Exception {
+        final StreamMock stream1 = getStreamMock("test1");
+        final StreamMock stream2 = getStreamMock("test2");
+
+        final StreamRuleMock rule1 = new StreamRuleMock(ImmutableMap.<String, Object>of(
+                "_id", new ObjectId(),
+                "field", "testfield1",
+                "type", StreamRuleType.PRESENCE.toInteger(),
+                "stream_id", stream1.getId()
+        ));
+        final StreamRuleMock rule2 = new StreamRuleMock(ImmutableMap.<String, Object>of(
+                "_id", new ObjectId(),
+                "field", "testfield2",
+                "value", "^test",
+                "type", StreamRuleType.REGEX.toInteger(),
+                "stream_id", stream1.getId()
+        ));
+        final StreamRuleMock rule3 = new StreamRuleMock(ImmutableMap.<String, Object>of(
+                "_id", new ObjectId(),
+                "field", "testfield3",
+                "value", "testvalue3",
+                "type", StreamRuleType.EXACT.toInteger(),
+                "stream_id", stream2.getId()
+        ));
+
+        stream1.setStreamRules(Lists.<StreamRule>newArrayList(rule1, rule2));
+        stream2.setStreamRules(Lists.<StreamRule>newArrayList(rule3));
+
+        final StreamRouterEngine engine = new StreamRouterEngine(Lists.<Stream>newArrayList(stream1, stream2));
+
+        List<Stream> match;
+
+        // Without testfield1 and testfield2 in the message.
+        final Message message1 = getMessage();
+        match = engine.match(message1);
+
+        assertTrue(match.isEmpty());
+
+        // With testfield1 and matching testfield2 in the message.
+        final Message message2 = getMessage();
+        message2.addField("testfield1", "testvalue");
+        message2.addField("testfield2", "testvalue2");
+
+        match = engine.match(message2);
+
+        assertEquals(match, Lists.newArrayList(stream1));
+
+        // With testfield1, matching testfield2 and matching testfield3 in the message.
+        final Message message3 = getMessage();
+        message3.addField("testfield1", "testvalue");
+        message3.addField("testfield2", "testvalue2");
+        message3.addField("testfield3", "testvalue3");
+
+        match = engine.match(message3);
+
+        assertTrue(match.contains(stream1));
+        assertTrue(match.contains(stream2));
+        assertEquals(match.size(), 2);
+
+        // With matching testfield3 in the message.
+        final Message message4 = getMessage();
+        message4.addField("testfield3", "testvalue3");
+
+        match = engine.match(message4);
+
+        assertEquals(match, Lists.newArrayList(stream2));
     }
 
     private StreamMock getStreamMock(String title) {

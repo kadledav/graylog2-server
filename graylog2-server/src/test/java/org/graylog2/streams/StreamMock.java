@@ -144,4 +144,12 @@ public class StreamMock implements Stream {
     public Set<Output> getOutputs() {
         return Sets.newHashSet();
     }
+
+    @Override
+    public String toString() {
+        return "StreamMock{" +
+                "id='" + id + '\'' +
+                ", title='" + title + '\'' +
+                '}';
+    }
 }
