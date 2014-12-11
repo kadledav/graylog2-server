@@ -141,6 +141,7 @@ public class StreamRouterEngine {
      */
     public List<Stream> match(Message message) {
         final Map<Stream, StreamMatch> matches = Maps.newHashMap();
+        final Set<Stream> timeouts = Sets.newHashSet();
         final List<Stream> result = Lists.newArrayList();
         final Map<String, Object> messageFields = message.getFields();
         final Set<String> messageKeys = messageFields.keySet();
@@ -151,7 +152,12 @@ public class StreamRouterEngine {
         matchRules(message, Sets.intersection(messageKeys, exactFields), exactRules, matches);
         matchRules(message, Sets.intersection(messageKeys, greaterFields), greaterRules, matches);
         matchRules(message, Sets.intersection(messageKeys, smallerFields), smallerRules, matches);
-        matchRulesWithTimeout(message, Sets.intersection(messageKeys, regexFields), regexRules, matches);
+        matchRulesWithTimeout(message, Sets.intersection(messageKeys, regexFields), regexRules, matches, timeouts);
+
+        // Register streams where rules ran into a timeout.
+        for (Stream stream : timeouts) {
+            streamFaultManager.registerFailure(stream);
+        }
 
         for (Map.Entry<Stream, StreamMatch> entry : matches.entrySet()) {
             if (entry.getValue().isMatched()) {
@@ -199,7 +205,7 @@ public class StreamRouterEngine {
         }
     }
 
-    private void matchRulesWithTimeout(final Message message, Set<String> fields, Map<String, List<Rule>> rules, Map<Stream, StreamMatch> matches) {
+    private void matchRulesWithTimeout(final Message message, Set<String> fields, Map<String, List<Rule>> rules, Map<Stream, StreamMatch> matches, Set<Stream> timeouts) {
         for (String field : fields) {
             for (final Rule rule : rules.get(field)) {
                 final Callable<Stream> task = new Callable<Stream>() {
@@ -209,14 +215,12 @@ public class StreamRouterEngine {
                     }
                 };
 
-
                 try {
                     final Stream match = timeLimiter.callWithTimeout(task, streamProcessingTimeout, TimeUnit.MILLISECONDS, true);
 
                     registerMatch(matches, match);
-                } catch (Exception e) {
-                    LOG.error("Execution failed", e);
-                    streamFaultManager.registerFailure(rule.getStream());
+                } catch (Exception e) { // Having to catch Exception here is bad! :(
+                    timeouts.add(rule.getStream());
                 }
             }
         }
