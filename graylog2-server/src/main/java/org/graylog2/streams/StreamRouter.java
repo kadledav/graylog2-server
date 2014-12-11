@@ -28,9 +28,6 @@ import com.google.common.util.concurrent.TimeLimiter;
 import com.google.inject.name.Named;
 import org.graylog2.Configuration;
 import org.graylog2.database.NotFoundException;
-import org.graylog2.database.ValidationException;
-import org.graylog2.notifications.Notification;
-import org.graylog2.notifications.NotificationService;
 import org.graylog2.plugin.Message;
 import org.graylog2.plugin.ServerStatus;
 import org.graylog2.plugin.streams.Stream;
@@ -63,8 +60,8 @@ public class StreamRouter {
     protected final StreamRuleService streamRuleService;
     private final MetricRegistry metricRegistry;
     private final StreamMetrics streamMetrics;
+    private final StreamFaultManager streamFaultManager;
     private final Configuration configuration;
-    private final NotificationService notificationService;
     private final ServerStatus serverStatus;
 
     private final ExecutorService executor;
@@ -78,8 +75,8 @@ public class StreamRouter {
                         StreamRuleService streamRuleService,
                         MetricRegistry metricRegistry,
                         StreamMetrics streamMetrics,
+                        StreamFaultManager streamFaultManager,
                         Configuration configuration,
-                        NotificationService notificationService,
                         ServerStatus serverStatus,
                         StreamRouterEngine.Factory routerEngineFactory,
                         @Named("daemonScheduler") ScheduledExecutorService scheduler) {
@@ -87,8 +84,8 @@ public class StreamRouter {
         this.streamRuleService = streamRuleService;
         this.metricRegistry = metricRegistry;
         this.streamMetrics = streamMetrics;
+        this.streamFaultManager = streamFaultManager;
         this.configuration = configuration;
-        this.notificationService = notificationService;
         this.serverStatus = serverStatus;
         this.faultCounter = Maps.newConcurrentMap();
         this.executor = executorService();
@@ -144,27 +141,7 @@ public class StreamRouter {
                     matches.add(stream);
                 }
             } catch (Exception e) {
-                final AtomicInteger faultCount = getFaultCount(stream.getId());
-                final int streamFaultCount = faultCount.incrementAndGet();
-                streamMetrics.markStreamRuleTimeout(stream.getId());
-                if (maxFaultCount > 0 && streamFaultCount >= maxFaultCount) {
-                    try {
-                        streamService.pause(stream);
-                        faultCount.set(0);
-                        streamMetrics.markStreamFaultsExceeded(stream.getId());
-                        LOG.error("Processing of stream <" + stream.getId() + "> failed to return within " + timeout + "ms for more than " + maxFaultCount + " times. Disabling stream.");
-
-                        final Notification notification = notificationService.buildNow()
-                                .addType(Notification.Type.STREAM_PROCESSING_DISABLED)
-                                .addSeverity(Notification.Severity.URGENT)
-                                .addDetail("stream_id", stream.getId())
-                                .addDetail("fault_count", streamFaultCount);
-                        notificationService.publishIfFirst(notification);
-                    } catch (ValidationException ex) {
-                        LOG.error("Unable to pause stream: {}", ex);
-                    }
-                } else
-                    LOG.warn("Processing of stream <{}> failed to return within {}ms.", stream.getId(), timeout);
+                streamFaultManager.registerFailure(stream);
             }
         }
 
