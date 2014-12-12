@@ -133,16 +133,15 @@ public class StreamRouterEngine {
         final Map<Stream, StreamMatch> matches = Maps.newHashMap();
         final Set<Stream> timeouts = Sets.newHashSet();
         final List<Stream> result = Lists.newArrayList();
-        final Map<String, Object> messageFields = message.getFields();
-        final Set<String> messageKeys = messageFields.keySet();
+        final Set<String> fieldNames = message.getFieldNames();
 
         // Execute the rules ordered by complexity. (fast rules first)
         matchRules(message, presenceFields, presenceRules, matches);
         // Only pass an intersection of the rules fields to avoid checking every field! (does not work for presence matching)
-        matchRules(message, Sets.intersection(messageKeys, exactFields), exactRules, matches);
-        matchRules(message, Sets.intersection(messageKeys, greaterFields), greaterRules, matches);
-        matchRules(message, Sets.intersection(messageKeys, smallerFields), smallerRules, matches);
-        matchRulesWithTimeout(message, Sets.intersection(messageKeys, regexFields), regexRules, matches, timeouts);
+        matchRules(message, Sets.intersection(fieldNames, exactFields), exactRules, matches);
+        matchRules(message, Sets.intersection(fieldNames, greaterFields), greaterRules, matches);
+        matchRules(message, Sets.intersection(fieldNames, smallerFields), smallerRules, matches);
+        matchRulesWithTimeout(message, Sets.intersection(fieldNames, regexFields), regexRules, matches, timeouts);
 
         // Register streams where rules ran into a timeout.
         for (Stream stream : timeouts) {
