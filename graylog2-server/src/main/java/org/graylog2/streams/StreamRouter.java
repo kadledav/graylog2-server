@@ -50,6 +50,8 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 
+import static com.codahale.metrics.MetricRegistry.name;
+
 /**
  * Routes a {@link org.graylog2.plugin.Message} to its streams.
  */
@@ -97,7 +99,8 @@ public class StreamRouter {
     }
 
     private ExecutorService executorService() {
-        return new InstrumentedExecutorService(Executors.newCachedThreadPool(threadFactory()), metricRegistry);
+        return new InstrumentedExecutorService(Executors.newCachedThreadPool(threadFactory()), metricRegistry,
+                name(this.getClass(), "executor-service"));
     }
 
     private ThreadFactory threadFactory() {
