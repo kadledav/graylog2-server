@@ -350,4 +350,13 @@ public class MessageTest {
 
         fieldNames.remove("_id");
     }
+
+    @Test
+    public void testHasField() throws Exception {
+        assertFalse(message.hasField("__foo__"));
+
+        message.addField("__foo__", "bar");
+
+        assertTrue(message.hasField("__foo__"));
+    }
 }

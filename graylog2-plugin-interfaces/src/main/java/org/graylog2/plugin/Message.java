@@ -299,6 +299,10 @@ public class Message {
         return ImmutableMap.copyOf(fields);
     }
 
+    public boolean hasField(String field) {
+        return fields.containsKey(field);
+    }
+
     public Set<String> getFieldNames() {
         return Collections.unmodifiableSet(fields.keySet());
     }
