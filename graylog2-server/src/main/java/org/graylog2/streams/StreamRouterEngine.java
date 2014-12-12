@@ -265,12 +265,18 @@ public class StreamRouterEngine {
 
         public Stream match(Message message) {
             // TODO Add missing message recordings!
-            try (final Timer.Context timer = streamMetrics.getExecutionTimer(getStreamRule().getId()).time()) {
+            try (final Timer.Context timer = streamMetrics.getExecutionTimer(rule.getId()).time()) {
                 if (matcher.match(message, rule)) {
                     return stream;
                 } else {
                     return null;
                 }
+            } catch (Exception e) {
+                if (LOG.isDebugEnabled()) {
+                    LOG.debug("Error matching stream rule <" + rule.getType() + "/" + rule.getValue() + ">: " + e.getMessage(), e);
+                }
+                streamMetrics.markExceptionMeter(rule.getStreamId());
+                return null;
             }
         }
 
