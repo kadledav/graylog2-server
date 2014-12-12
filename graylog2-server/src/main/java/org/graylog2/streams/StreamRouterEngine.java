@@ -24,6 +24,7 @@ import com.google.common.collect.Maps;
 import com.google.common.collect.Sets;
 import com.google.common.util.concurrent.SimpleTimeLimiter;
 import com.google.common.util.concurrent.TimeLimiter;
+import com.google.common.util.concurrent.UncheckedTimeoutException;
 import com.google.inject.Inject;
 import com.google.inject.assistedinject.Assisted;
 import org.graylog2.plugin.Message;
@@ -214,8 +215,10 @@ public class StreamRouterEngine {
 
                     timer.stop();
                     registerMatch(matches, match);
-                } catch (Exception e) { // Having to catch Exception here is bad! :(
+                } catch (UncheckedTimeoutException e) {
                     timeouts.add(rule.getStream());
+                } catch (Exception e) {
+                    LOG.error("Unexpected stream rule exception.", e);
                 }
             }
         }
