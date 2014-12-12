@@ -17,7 +17,6 @@
 
 package org.graylog2.streams;
 
-import com.codahale.metrics.MetricRegistry;
 import com.codahale.metrics.Timer;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
@@ -52,7 +51,6 @@ public class StreamRouterEngine {
     private final List<Stream> streams;
     private final StreamFaultManager streamFaultManager;
     private final StreamMetrics streamMetrics;
-    private final MetricRegistry metricRegistry;
     private final TimeLimiter timeLimiter;
     private final long streamProcessingTimeout;
 
@@ -76,12 +74,10 @@ public class StreamRouterEngine {
     public StreamRouterEngine(@Assisted List<Stream> streams,
                               @Assisted ExecutorService executorService,
                               StreamFaultManager streamFaultManager,
-                              StreamMetrics streamMetrics,
-                              MetricRegistry metricRegistry) {
+                              StreamMetrics streamMetrics) {
         this.streams = streams;
         this.streamFaultManager = streamFaultManager;
         this.streamMetrics = streamMetrics;
-        this.metricRegistry = metricRegistry;
         this.timeLimiter = new SimpleTimeLimiter(executorService);
         this.streamProcessingTimeout = streamFaultManager.getStreamProcessingTimeout();
 
@@ -141,9 +137,10 @@ public class StreamRouterEngine {
         matchRules(message, Sets.intersection(fieldNames, exactFields), exactRules, matches);
         matchRules(message, Sets.intersection(fieldNames, greaterFields), greaterRules, matches);
         matchRules(message, Sets.intersection(fieldNames, smallerFields), smallerRules, matches);
+        // Execute regex rules with a timeout to prevent bad regexes to hang the processing.
         matchRulesWithTimeout(message, Sets.intersection(fieldNames, regexFields), regexRules, matches, timeouts);
 
-        // Register streams where rules ran into a timeout.
+        // Register failure for streams where rules ran into a timeout.
         for (Stream stream : timeouts) {
             streamFaultManager.registerFailure(stream);
         }
@@ -189,11 +186,7 @@ public class StreamRouterEngine {
     private void matchRules(Message message, Set<String> fields, Map<String, List<Rule>> rules, Map<Stream, StreamMatch> matches) {
         for (String field : fields) {
             for (Rule rule : rules.get(field)) {
-                final Timer.Context timer = streamMetrics.getExecutionTimer(rule.getStreamRule().getId()).time();
-                final Stream match = rule.match(message);
-
-                timer.stop();
-                registerMatch(matches, match);
+                registerMatch(matches, rule.match(message));
             }
         }
     }
@@ -209,10 +202,8 @@ public class StreamRouterEngine {
                 };
 
                 try {
-                    final Timer.Context timer = streamMetrics.getExecutionTimer(rule.getStreamRule().getId()).time();
                     final Stream match = timeLimiter.callWithTimeout(task, streamProcessingTimeout, TimeUnit.MILLISECONDS, true);
 
-                    timer.stop();
                     registerMatch(matches, match);
                 } catch (UncheckedTimeoutException e) {
                     timeouts.add(rule.getStream());
@@ -273,10 +264,13 @@ public class StreamRouterEngine {
         }
 
         public Stream match(Message message) {
-            if (matcher.match(message, rule)) {
-                return stream;
-            } else {
-                return null;
+            // TODO Add missing message recordings!
+            try (final Timer.Context timer = streamMetrics.getExecutionTimer(getStreamRule().getId()).time()) {
+                if (matcher.match(message, rule)) {
+                    return stream;
+                } else {
+                    return null;
+                }
             }
         }
 
