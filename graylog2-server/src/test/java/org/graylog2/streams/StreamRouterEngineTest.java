@@ -55,7 +55,7 @@ public class StreamRouterEngineTest {
     }
 
     private StreamRouterEngine newEngine(List<Stream> streams) {
-        return new StreamRouterEngine(streams, Executors.newSingleThreadExecutor(), streamFaultManager, streamMetrics, metricRegistry);
+        return new StreamRouterEngine(streams, Executors.newSingleThreadExecutor(), streamFaultManager, streamMetrics);
     }
 
     @Test
