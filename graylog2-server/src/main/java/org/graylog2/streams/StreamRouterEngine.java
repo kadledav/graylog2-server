@@ -148,6 +148,7 @@ public class StreamRouterEngine {
         for (Map.Entry<Stream, StreamMatch> entry : matches.entrySet()) {
             if (entry.getValue().isMatched()) {
                 result.add(entry.getKey());
+                streamMetrics.markIncomingMeter(entry.getKey().getId());
             }
         }
 
@@ -220,7 +221,6 @@ public class StreamRouterEngine {
                 matches.put(match, new StreamMatch(match));
             }
             matches.get(match).increment();
-            streamMetrics.markIncomingMeter(match.getId());
         }
     }
 
