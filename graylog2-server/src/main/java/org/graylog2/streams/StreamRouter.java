@@ -105,14 +105,18 @@ public class StreamRouter {
 
         @Override
         public void run() {
-            final StreamRouterEngine engine = getNewEngine();
+            try {
+                final StreamRouterEngine engine = getNewEngine();
 
-            if (engine.getFingerprint().equals(routerEngine.get().getFingerprint())) {
-                LOG.debug("Not updating router engine, streams did not change (fingerprint={})", engine.getFingerprint());
-            } else {
-                LOG.debug("Updating to new stream router engine. (old-fingerprint={} new-fingerprint={}",
-                        routerEngine.get().getFingerprint(), engine.getFingerprint());
-                routerEngine.set(engine);
+                if (engine.getFingerprint().equals(routerEngine.get().getFingerprint())) {
+                    LOG.debug("Not updating router engine, streams did not change (fingerprint={})", engine.getFingerprint());
+                } else {
+                    LOG.debug("Updating to new stream router engine. (old-fingerprint={} new-fingerprint={}",
+                            routerEngine.get().getFingerprint(), engine.getFingerprint());
+                    routerEngine.set(engine);
+                }
+            } catch (Exception e) {
+                LOG.error("Stream router engine update failed!", e);
             }
         }
 
