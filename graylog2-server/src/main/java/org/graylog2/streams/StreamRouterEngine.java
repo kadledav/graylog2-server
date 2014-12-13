@@ -53,6 +53,7 @@ public class StreamRouterEngine {
     private final StreamMetrics streamMetrics;
     private final TimeLimiter timeLimiter;
     private final long streamProcessingTimeout;
+    private final String fingerprint;
 
     private final Map<String, List<Rule>> presenceRules = Maps.newHashMap();
     private final Map<String, List<Rule>> exactRules = Maps.newHashMap();
@@ -80,6 +81,7 @@ public class StreamRouterEngine {
         this.streamMetrics = streamMetrics;
         this.timeLimiter = new SimpleTimeLimiter(executorService);
         this.streamProcessingTimeout = streamFaultManager.getStreamProcessingTimeout();
+        this.fingerprint = new StreamListFingerprint(streams).getFingerprint();
 
         for (final Stream stream : streams) {
             for (final StreamRule streamRule : stream.getStreamRules()) {
@@ -117,6 +119,15 @@ public class StreamRouterEngine {
      */
     public List<Stream> getStreams() {
         return streams;
+    }
+
+    /**
+     * Returns the fingerprint of the engine instance.
+     *
+     * @return the fingerprint
+     */
+    public String getFingerprint() {
+        return fingerprint;
     }
 
     /**

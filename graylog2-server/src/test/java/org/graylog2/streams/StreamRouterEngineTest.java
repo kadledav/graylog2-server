@@ -39,6 +39,7 @@ import java.util.concurrent.Executors;
 import static org.mockito.Mockito.when;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
+import static org.testng.Assert.assertNotEquals;
 import static org.testng.Assert.assertTrue;
 
 public class StreamRouterEngineTest {
@@ -403,6 +404,44 @@ public class StreamRouterEngineTest {
         assertTrue(testMatch3.isMatched());
         assertTrue(matches3.get(rule1));
         assertTrue(matches3.get(rule2));
+    }
+
+    @Test
+    public void testGetFingerprint() {
+        final StreamMock stream1 = getStreamMock("test");
+        final StreamRuleMock rule1 = new StreamRuleMock(ImmutableMap.<String, Object>of(
+                "_id", new ObjectId(),
+                "field", "testfield1",
+                "type", StreamRuleType.PRESENCE.toInteger(),
+                "stream_id", stream1.getId()
+        ));
+        final StreamRuleMock rule2 = new StreamRuleMock(ImmutableMap.<String, Object>of(
+                "_id", new ObjectId(),
+                "field", "testfield2",
+                "value", "^test",
+                "type", StreamRuleType.REGEX.toInteger(),
+                "stream_id", stream1.getId()
+        ));
+
+        stream1.setStreamRules(Lists.<StreamRule>newArrayList(rule1, rule2));
+
+        final StreamMock stream2 = getStreamMock("test");
+        final StreamRuleMock rule3 = new StreamRuleMock(ImmutableMap.<String, Object>of(
+                "_id", new ObjectId(),
+                "field", "testfield",
+                "value", "^test",
+                "type", StreamRuleType.REGEX.toInteger(),
+                "stream_id", stream2.getId()
+        ));
+
+        stream2.setStreamRules(Lists.<StreamRule>newArrayList(rule3));
+
+        final StreamRouterEngine engine1 = newEngine(Lists.<Stream>newArrayList(stream1));
+        final StreamRouterEngine engine2 = newEngine(Lists.<Stream>newArrayList(stream1));
+        final StreamRouterEngine engine3 = newEngine(Lists.<Stream>newArrayList(stream2));
+
+        assertEquals(engine1.getFingerprint(), engine2.getFingerprint());
+        assertNotEquals(engine1.getFingerprint(), engine3.getFingerprint());
     }
 
     private StreamMock getStreamMock(String title) {
