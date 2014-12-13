@@ -107,9 +107,13 @@ public class StreamRouter {
         public void run() {
             final StreamRouterEngine engine = getNewEngine();
 
-            LOG.debug("Updating to new router engine");
-            // TODO Add fingerprint to engine to avoid setting this on every invocation. Compare fingerprint, if not changed, do not update.
-            routerEngine.set(engine);
+            if (engine.getFingerprint().equals(routerEngine.get().getFingerprint())) {
+                LOG.debug("Not updating router engine, streams did not change (fingerprint={})", engine.getFingerprint());
+            } else {
+                LOG.debug("Updating to new stream router engine. (old-fingerprint={} new-fingerprint={}",
+                        routerEngine.get().getFingerprint(), engine.getFingerprint());
+                routerEngine.set(engine);
+            }
         }
 
         private StreamRouterEngine getNewEngine() {
