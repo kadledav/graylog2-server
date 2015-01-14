@@ -16,35 +16,21 @@
  */
 package org.graylog2.periodical;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.squareup.okhttp.OkHttpClient;
-import org.graylog2.plugin.ServerStatus;
 import org.graylog2.plugin.periodical.Periodical;
-import org.graylog2.radio.Configuration;
 import org.graylog2.radio.cluster.Ping;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import javax.inject.Inject;
-import java.io.IOException;
 
 public class MasterPingPeriodical extends Periodical {
     private static final Logger LOG = LoggerFactory.getLogger(MasterPingPeriodical.class);
 
-    private final ServerStatus serverStatus;
-    private final Configuration configuration;
-    private final OkHttpClient httpClient;
-    private final ObjectMapper objectMapper;
+    private final Ping.Pinger pinger;
 
     @Inject
-    public MasterPingPeriodical(ServerStatus serverStatus,
-                                Configuration configuration,
-                                OkHttpClient httpClient,
-                                ObjectMapper objectMapper) {
-        this.serverStatus = serverStatus;
-        this.configuration = configuration;
-        this.httpClient = httpClient;
-        this.objectMapper = objectMapper;
+    public MasterPingPeriodical(Ping.Pinger pinger) {
+        this.pinger = pinger;
     }
 
     @Override
@@ -84,15 +70,7 @@ public class MasterPingPeriodical extends Periodical {
 
     @Override
     public void doRun() {
-        try {
-            Ping.ping(httpClient,
-                    objectMapper,
-                    configuration.getGraylog2ServerUri(),
-                    configuration.getRestTransportUri(),
-                    serverStatus.getNodeId().toString());
-        } catch (IOException e) {
-            LOG.error("Master ping failed.", e);
-        }
+        pinger.ping();
     }
 
     @Override
