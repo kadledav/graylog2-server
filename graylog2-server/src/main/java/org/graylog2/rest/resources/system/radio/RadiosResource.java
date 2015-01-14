@@ -35,7 +35,7 @@ import org.graylog2.inputs.InputImpl;
 import org.graylog2.inputs.InputService;
 import org.graylog2.plugin.Tools;
 import org.graylog2.shared.rest.resources.RestResource;
-import org.graylog2.rest.resources.system.radio.requests.PingRequest;
+import org.graylog2.rest.models.system.radio.requests.PingRequest;
 import org.graylog2.rest.resources.system.radio.responses.RadioSummary;
 import org.graylog2.shared.rest.resources.system.inputs.requests.RegisterInputRequest;
 import org.slf4j.Logger;

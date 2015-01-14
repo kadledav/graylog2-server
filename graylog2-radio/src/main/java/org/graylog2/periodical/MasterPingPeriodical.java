@@ -16,35 +16,35 @@
  */
 package org.graylog2.periodical;
 
-import com.ning.http.client.AsyncHttpClient;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.squareup.okhttp.OkHttpClient;
+import org.graylog2.plugin.ServerStatus;
 import org.graylog2.plugin.periodical.Periodical;
 import org.graylog2.radio.Configuration;
 import org.graylog2.radio.cluster.Ping;
-import org.graylog2.plugin.ServerStatus;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import javax.inject.Inject;
 import java.io.IOException;
-import java.util.concurrent.ExecutionException;
 
-/**
- * @author Dennis Oelkers <dennis@torch.sh>
- */
 public class MasterPingPeriodical extends Periodical {
     private static final Logger LOG = LoggerFactory.getLogger(MasterPingPeriodical.class);
 
     private final ServerStatus serverStatus;
     private final Configuration configuration;
-    private final AsyncHttpClient httpClient;
+    private final OkHttpClient httpClient;
+    private final ObjectMapper objectMapper;
 
     @Inject
     public MasterPingPeriodical(ServerStatus serverStatus,
                                 Configuration configuration,
-                                AsyncHttpClient httpClient) {
+                                OkHttpClient httpClient,
+                                ObjectMapper objectMapper) {
         this.serverStatus = serverStatus;
         this.configuration = configuration;
         this.httpClient = httpClient;
+        this.objectMapper = objectMapper;
     }
 
     @Override
@@ -86,10 +86,11 @@ public class MasterPingPeriodical extends Periodical {
     public void doRun() {
         try {
             Ping.ping(httpClient,
+                    objectMapper,
                     configuration.getGraylog2ServerUri(),
                     configuration.getRestTransportUri(),
                     serverStatus.getNodeId().toString());
-        } catch (IOException | ExecutionException | InterruptedException e) {
+        } catch (IOException e) {
             LOG.error("Master ping failed.", e);
         }
     }
