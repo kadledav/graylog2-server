@@ -24,11 +24,7 @@ import java.util.Map;
 
 import static org.testng.Assert.assertNull;
 import static org.testng.AssertJUnit.assertEquals;
-import static org.testng.AssertJUnit.assertTrue;
 
-/**
- * @author Lennart Koopmann <lennart@torch.sh>
- */
 public class TokenizerConverterTest {
 
     @Test
@@ -147,7 +143,6 @@ public class TokenizerConverterTest {
         TokenizerConverter f = new TokenizerConverter(new HashMap<String, Object>());
         Map<String, String> result = (Map<String, String>) f.convert("otters _id=123 more otters");
 
-        assertTrue(result.get("_id") != "123");
+        assertEquals("123", result.get("_id"));
     }
-
 }

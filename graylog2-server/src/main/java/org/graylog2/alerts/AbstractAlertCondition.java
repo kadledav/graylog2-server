@@ -17,6 +17,7 @@
 package org.graylog2.alerts;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
+import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Lists;
 import org.graylog2.plugin.MessageSummary;
@@ -144,6 +145,7 @@ public abstract class AbstractAlertCondition implements EmbeddedPersistable, Ale
     }
 
     public static class CheckResult implements AlertCondition.CheckResult {
+        public static final CheckResult UNTRIGGERED = new CheckResult(false, null, null, null, null);
 
         private final boolean isTriggered;
         private final String resultDescription;
@@ -163,12 +165,6 @@ public abstract class AbstractAlertCondition implements EmbeddedPersistable, Ale
             if (summaries != null) {
                 this.summaries.addAll(summaries);
             }
-        }
-
-        public CheckResult(boolean isTriggered) {
-            this(false, null, null, null, null);
-            if (isTriggered)
-                throw new RuntimeException("Boolean only constructor should only be called if CheckResult is not triggered!");
         }
 
         public boolean isTriggered() {

@@ -119,7 +119,7 @@ public class Configuration extends BaseConfiguration {
     private int alertCheckInterval = 60;
 
     @Parameter(value = "gc_warning_threshold")
-    private Duration gcWarningThreshold = Duration.seconds(1l);
+    private Duration gcWarningThreshold = Duration.seconds(1L);
 
     @Parameter(value = "default_message_output_class")
     private String defaultMessageOutputClass = "";

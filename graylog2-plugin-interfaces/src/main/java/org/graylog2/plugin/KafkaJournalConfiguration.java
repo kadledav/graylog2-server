@@ -38,7 +38,7 @@ public class KafkaJournalConfiguration {
 
     @Parameter("message_journal_segment_size")
     @JsonProperty("segment_size")
-    private Size messageJournalSegmentSize = Size.megabytes(100l);
+    private Size messageJournalSegmentSize = Size.megabytes(100L);
 
     @Parameter("message_journal_segment_age")
     @JsonFormat(shape = JsonFormat.Shape.NUMBER)
@@ -47,7 +47,7 @@ public class KafkaJournalConfiguration {
 
     @Parameter("message_journal_max_size")
     @JsonProperty("max_size")
-    private Size messageJournalMaxSize = Size.gigabytes(5l);
+    private Size messageJournalMaxSize = Size.gigabytes(5L);
 
     @Parameter("message_journal_max_age")
     @JsonFormat(shape = JsonFormat.Shape.NUMBER)

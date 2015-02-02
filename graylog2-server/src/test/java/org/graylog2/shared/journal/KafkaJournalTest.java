@@ -82,9 +82,9 @@ public class KafkaJournalTest extends Graylog2BaseTest {
     public void writeAndRead() throws IOException {
         final Journal journal = new KafkaJournal(journalDirectory,
                                                  scheduler,
-                                                 Size.megabytes(100l),
+                                                 Size.megabytes(100L),
                                                  Duration.standardHours(1),
-                                                 Size.megabytes(5l),
+                                                 Size.megabytes(5L),
                                                  Duration.standardHours(1),
                                                  1_000_000,
                                                  Duration.standardMinutes(1),
@@ -105,9 +105,9 @@ public class KafkaJournalTest extends Graylog2BaseTest {
     public void readAtLeastOne() throws Exception {
         final Journal journal = new KafkaJournal(journalDirectory,
                                                  scheduler,
-                                                 Size.megabytes(100l),
+                                                 Size.megabytes(100L),
                                                  Duration.standardHours(1),
-                                                 Size.megabytes(5l),
+                                                 Size.megabytes(5L),
                                                  Duration.standardHours(1),
                                                  1_000_000,
                                                  Duration.standardMinutes(1),
@@ -151,9 +151,9 @@ public class KafkaJournalTest extends Graylog2BaseTest {
     public void segmentRotation() throws Exception {
         final KafkaJournal journal = new KafkaJournal(journalDirectory,
                                                       scheduler,
-                                                      Size.kilobytes(1l),
+                                                      Size.kilobytes(1L),
                                                       Duration.standardHours(1),
-                                                      Size.kilobytes(10l),
+                                                      Size.kilobytes(10L),
                                                       Duration.standardDays(1),
                                                       1_000_000,
                                                       Duration.standardMinutes(1),
@@ -177,9 +177,9 @@ public class KafkaJournalTest extends Graylog2BaseTest {
     public void segmentSizeCleanup() throws Exception {
         final KafkaJournal journal = new KafkaJournal(journalDirectory,
                                                       scheduler,
-                                                      Size.kilobytes(1l),
+                                                      Size.kilobytes(1L),
                                                       Duration.standardHours(1),
-                                                      Size.kilobytes(10l),
+                                                      Size.kilobytes(10L),
                                                       Duration.standardDays(1),
                                                       1_000_000,
                                                       Duration.standardMinutes(1),
@@ -211,9 +211,9 @@ public class KafkaJournalTest extends Graylog2BaseTest {
 
             final KafkaJournal journal = new KafkaJournal(journalDirectory,
                                                           scheduler,
-                                                          Size.kilobytes(1l),
+                                                          Size.kilobytes(1L),
                                                           Duration.standardHours(1),
-                                                          Size.kilobytes(10l),
+                                                          Size.kilobytes(10L),
                                                           Duration.standardMinutes(1),
                                                           1_000_000,
                                                           Duration.standardMinutes(1),
@@ -262,9 +262,9 @@ public class KafkaJournalTest extends Graylog2BaseTest {
     public void segmentCommittedCleanup() throws Exception {
         final KafkaJournal journal = new KafkaJournal(journalDirectory,
                                                       scheduler,
-                                                      Size.kilobytes(1l),
+                                                      Size.kilobytes(1L),
                                                       Duration.standardHours(1),
-                                                      Size.petabytes(1l), // never clean by size in this test
+                                                      Size.petabytes(1L), // never clean by size in this test
                                                       Duration.standardDays(1),
                                                       1_000_000,
                                                       Duration.standardMinutes(1),
@@ -310,9 +310,9 @@ public class KafkaJournalTest extends Graylog2BaseTest {
 
         final Journal journal = new KafkaJournal(journalDirectory,
                 scheduler,
-                Size.megabytes(100l),
+                Size.megabytes(100L),
                 Duration.standardHours(1),
-                Size.megabytes(5l),
+                Size.megabytes(5L),
                 Duration.standardHours(1),
                 1_000_000,
                 Duration.standardMinutes(1),

@@ -82,9 +82,9 @@ public class DeflectorTest {
                 mock(CreateNewSingleIndexRangeJob.Factory.class),
                 mock(Indices.class));
 
-        assertEquals("graylog2_0", d.buildIndexName("graylog2", 0));
-        assertEquals("graylog2_1", d.buildIndexName("graylog2", 1));
-        assertEquals("graylog2_9001", d.buildIndexName("graylog2", 9001));
+        assertEquals("graylog2_0", Deflector.buildIndexName("graylog2", 0));
+        assertEquals("graylog2_1", Deflector.buildIndexName("graylog2", 1));
+        assertEquals("graylog2_9001", Deflector.buildIndexName("graylog2", 9001));
     }
 
     @Test

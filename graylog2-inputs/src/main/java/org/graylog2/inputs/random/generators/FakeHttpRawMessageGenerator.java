@@ -142,7 +142,7 @@ public class FakeHttpRawMessageGenerator {
         return method + " " + resource + " [" + code + "]" + " " + tookMs + "ms";
     }
 
-    private <T extends Weighted> T getWeighted(List<? extends Weighted> list) {
+    private <T extends Weighted> T getWeighted(List<T> list) {
         while (true) {
             int x = rand.nextInt(MAX_WEIGHT);
             Weighted obj = list.get(rand.nextInt(list.size()));
