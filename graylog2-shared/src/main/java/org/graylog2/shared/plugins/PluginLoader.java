@@ -16,7 +16,9 @@
  */
 package org.graylog2.shared.plugins;
 
+import com.google.common.collect.ComparisonChain;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.ImmutableSortedSet;
 import org.graylog2.plugin.Plugin;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -26,6 +28,7 @@ import java.net.MalformedURLException;
 import java.net.URL;
 import java.net.URLClassLoader;
 import java.util.Collections;
+import java.util.Comparator;
 import java.util.ServiceLoader;
 import java.util.Set;
 
@@ -39,12 +42,10 @@ public class PluginLoader {
     }
 
     public Set<Plugin> loadPlugins() {
-        final ImmutableSet.Builder<Plugin> plugins = ImmutableSet.builder();
-
-        plugins.addAll(loadClassPathPlugins());
-        plugins.addAll(loadJarPlugins());
-
-        return plugins.build();
+        return ImmutableSortedSet.orderedBy(new PluginComparator())
+                .addAll(loadClassPathPlugins())
+                .addAll(loadJarPlugins())
+                .build();
     }
 
     private Iterable<Plugin> loadClassPathPlugins() {
@@ -89,5 +90,19 @@ public class PluginLoader {
         }
 
         return plugins.build();
+    }
+
+    public static class PluginComparator implements Comparator<Plugin> {
+        /**
+         * {@inheritDoc}
+         */
+        @Override
+        public int compare(Plugin o1, Plugin o2) {
+            return ComparisonChain.start()
+                    .compare(o1.metadata().getUniqueId(), o2.metadata().getUniqueId())
+                    .compare(o1.metadata().getName(), o2.metadata().getName())
+                    .compare(o1.metadata().getVersion(), o2.metadata().getVersion())
+                    .result();
+        }
     }
 }
