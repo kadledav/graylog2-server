@@ -20,6 +20,8 @@ import com.google.common.collect.ComparisonChain;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSortedSet;
 import org.graylog2.plugin.Plugin;
+import org.graylog2.plugin.PluginMetaData;
+import org.graylog2.plugin.PluginModule;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -27,10 +29,14 @@ import java.io.File;
 import java.net.MalformedURLException;
 import java.net.URL;
 import java.net.URLClassLoader;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.Comparator;
+import java.util.Objects;
 import java.util.ServiceLoader;
 import java.util.Set;
+
+import static com.google.inject.internal.util.$Preconditions.checkNotNull;
 
 public class PluginLoader {
     private static final Logger LOG = LoggerFactory.getLogger(PluginLoader.class);
@@ -42,10 +48,17 @@ public class PluginLoader {
     }
 
     public Set<Plugin> loadPlugins() {
-        return ImmutableSortedSet.orderedBy(new PluginComparator())
+        final Set<Plugin> sorted = ImmutableSortedSet.orderedBy(new PluginComparator())
                 .addAll(loadClassPathPlugins())
                 .addAll(loadJarPlugins())
                 .build();
+
+        final ImmutableSet.Builder<Plugin> unique = ImmutableSet.builder();
+        for (Plugin plugin : sorted) {
+            unique.add(new PluginAdapter(plugin));
+        }
+
+        return unique.build();
     }
 
     private Iterable<Plugin> loadClassPathPlugins() {
@@ -103,6 +116,55 @@ public class PluginLoader {
                     .compare(o1.metadata().getName(), o2.metadata().getName())
                     .compare(o1.metadata().getVersion(), o2.metadata().getVersion())
                     .result();
+        }
+    }
+
+    /**
+     * Adapter for {@link org.graylog2.plugin.Plugin} which implements {@link #equals(Object)} and {@link #hashCode()}
+     * only taking {@link org.graylog2.plugin.PluginMetaData#getUniqueId()} and {@link org.graylog2.plugin.PluginMetaData#getName()}
+     * into account.
+     */
+    public static class PluginAdapter implements Plugin {
+        private final Plugin plugin;
+
+        public PluginAdapter(Plugin plugin) {
+            this.plugin = checkNotNull(plugin);
+        }
+
+        @Override
+        public PluginMetaData metadata() {
+            return plugin.metadata();
+        }
+
+        @Override
+        public Collection<PluginModule> modules() {
+            return plugin.modules();
+        }
+
+        @Override
+        public int hashCode() {
+            return Objects.hash(plugin.metadata().getUniqueId(), plugin.metadata().getName());
+        }
+
+        @Override
+        public boolean equals(Object obj) {
+            if (this == obj) {
+                return true;
+            }
+
+            if (obj instanceof Plugin) {
+                final Plugin that = (Plugin) obj;
+                return Objects.equals(this.metadata().getUniqueId(), that.metadata().getUniqueId())
+                        && Objects.equals(this.metadata().getName(), that.metadata().getName());
+            }
+
+            return false;
+        }
+
+        @Override
+        public String toString() {
+            final PluginMetaData metadata = plugin.metadata();
+            return metadata.getName() + " " + metadata.getVersion() + " [" + metadata.getUniqueId() + "]";
         }
     }
 }
