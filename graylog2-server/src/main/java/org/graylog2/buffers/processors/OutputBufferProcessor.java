@@ -24,7 +24,9 @@ import com.codahale.metrics.Timer;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import com.google.common.util.concurrent.Uninterruptibles;
+
 import javax.inject.Inject;
+
 import com.lmax.disruptor.WorkHandler;
 import org.graylog2.Configuration;
 import org.graylog2.outputs.DefaultMessageOutput;
@@ -37,6 +39,7 @@ import org.graylog2.shared.stats.ThroughputStats;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.util.List;
 import java.util.Set;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
@@ -124,47 +127,49 @@ public class OutputBufferProcessor implements WorkHandler<MessageEvent> {
     public void onEvent(MessageEvent event) throws Exception {
         incomingMessages.mark();
 
-        final Message msg = event.getMessage();
-        if (msg == null) {
+        final List<Message> messages = event.getMessages();
+        if (messages == null) {
             LOG.debug("Skipping null message.");
             return;
         }
-        LOG.debug("Processing message <{}> from OutputBuffer.", msg.getId());
+        for (Message msg : messages) {
+            LOG.debug("Processing message <{}> from OutputBuffer.", msg.getId());
 
-        final Set<MessageOutput> messageOutputs = outputRouter.getStreamOutputsForMessage(msg);
-        msg.recordCounter(serverStatus, "matched-outputs", messageOutputs.size());
+            final Set<MessageOutput> messageOutputs = outputRouter.getStreamOutputsForMessage(msg);
+            msg.recordCounter(serverStatus, "matched-outputs", messageOutputs.size());
 
-        final Future<?> defaultOutputCompletion = processMessage(msg, defaultMessageOutput);
+            final Future<?> defaultOutputCompletion = processMessage(msg, defaultMessageOutput);
 
-        final CountDownLatch streamOutputsDoneSignal = new CountDownLatch(messageOutputs.size());
-        for (final MessageOutput output : messageOutputs) {
-            processMessage(msg, output, streamOutputsDoneSignal);
+            final CountDownLatch streamOutputsDoneSignal = new CountDownLatch(messageOutputs.size());
+            for (final MessageOutput output : messageOutputs) {
+                processMessage(msg, output, streamOutputsDoneSignal);
+            }
+
+            // Wait until all writer threads for stream outputs have finished or timeout is reached.
+            if (!streamOutputsDoneSignal.await(configuration.getOutputModuleTimeout(), TimeUnit.MILLISECONDS)) {
+                LOG.warn("Timeout reached. Not waiting any longer for stream output writer threads to complete.");
+            }
+
+            // now block until the default output has finished. most batching outputs will already been done because their
+            // fast path is really fast (usually an insert into a queue), but the slow flush path might block for a long time
+            // this exerts the back pressure to the system
+            if (defaultOutputCompletion != null) {
+                Uninterruptibles.getUninterruptibly(defaultOutputCompletion);
+            } else {
+                LOG.error("The default output future was null, this is a bug!");
+            }
+
+            if (msg.hasRecordings()) {
+                LOG.debug("Message event trace: {}", msg.recordingsAsString());
+            }
+            if (serverStatus.hasCapability(ServerStatus.Capability.STATSMODE)) {
+                throughputStats.getBenchmarkCounter().increment();
+            }
+
+            throughputStats.getThroughputCounter().increment();
+
+            LOG.debug("Wrote message <{}> to all outputs. Finished handling.", msg.getId());
         }
-
-        // Wait until all writer threads for stream outputs have finished or timeout is reached.
-        if (!streamOutputsDoneSignal.await(configuration.getOutputModuleTimeout(), TimeUnit.MILLISECONDS)) {
-            LOG.warn("Timeout reached. Not waiting any longer for stream output writer threads to complete.");
-        }
-
-        // now block until the default output has finished. most batching outputs will already been done because their
-        // fast path is really fast (usually an insert into a queue), but the slow flush path might block for a long time
-        // this exerts the back pressure to the system
-        if (defaultOutputCompletion != null) {
-            Uninterruptibles.getUninterruptibly(defaultOutputCompletion);
-        } else {
-            LOG.error("The default output future was null, this is a bug!");
-        }
-
-        if (msg.hasRecordings()) {
-            LOG.debug("Message event trace: {}", msg.recordingsAsString());
-        }
-        if (serverStatus.hasCapability(ServerStatus.Capability.STATSMODE)) {
-            throughputStats.getBenchmarkCounter().increment();
-        }
-
-        throughputStats.getThroughputCounter().increment();
-
-        LOG.debug("Wrote message <{}> to all outputs. Finished handling.", msg.getId());
     }
 
     private Future<?> processMessage(final Message msg, final MessageOutput defaultMessageOutput) {

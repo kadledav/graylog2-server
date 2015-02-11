@@ -25,6 +25,8 @@ import org.graylog2.plugin.buffers.MessageEvent;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.util.List;
+
 import static com.codahale.metrics.MetricRegistry.name;
 
 /**
@@ -55,25 +57,26 @@ public abstract class ProcessBufferProcessor implements WorkHandler<MessageEvent
         // TODO The DecodingProcessor does not need to be a EventHandler. We decided to do it like this to keep the change as small as possible for 1.0.0.
         decodingProcessor.onEvent(event, 0L, false);
 
-        final Message msg = event.getMessage();
-        if (msg == null) {
+        final List<Message> msgs = event.getMessages();
+        if (msgs == null) {
             // skip message events which could not be decoded properly
             return;
         }
         incomingMessages.mark();
-        final Timer.Context tcx = processTime.time();
+        for (Message msg : msgs) {
+            final Timer.Context tcx = processTime.time();
 
+            LOG.debug("Starting to process message <{}>.", msg.getId());
 
-        LOG.debug("Starting to process message <{}>.", msg.getId());
-
-        try {
-            LOG.debug("Finished processing message <{}>. Writing to output buffer.", msg.getId());
-            handleMessage(msg);
-        } catch (Exception e) {
-            LOG.warn("Unable to process message <{}>: {}", msg.getId(), e);
-        } finally {
-            outgoingMessages.mark();
-            tcx.stop();
+            try {
+                LOG.debug("Finished processing message <{}>. Writing to output buffer.", msg.getId());
+                handleMessage(msg);
+            } catch (Exception e) {
+                LOG.warn("Unable to process message <{}>: {}", msg.getId(), e);
+            } finally {
+                outgoingMessages.mark();
+                tcx.stop();
+            }
         }
     }
 

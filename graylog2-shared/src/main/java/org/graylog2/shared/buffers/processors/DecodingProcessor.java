@@ -30,12 +30,15 @@ import org.graylog2.plugin.ResolvableInetSocketAddress;
 import org.graylog2.plugin.ServerStatus;
 import org.graylog2.plugin.buffers.MessageEvent;
 import org.graylog2.plugin.inputs.codecs.Codec;
+import org.graylog2.plugin.inputs.codecs.MultiMessageAwareCodec;
 import org.graylog2.plugin.journal.RawMessage;
 import org.graylog2.shared.inputs.InputRegistry;
 import org.graylog2.shared.inputs.PersistedInputs;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.util.Arrays;
+import java.util.List;
 import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.concurrent.ExecutionException;
@@ -77,17 +80,19 @@ public class DecodingProcessor implements EventHandler<MessageEvent> {
         try {
             // always set the result of processMessage, even if it is null, to avoid later stages to process old messages.
             // basically this will make sure old messages are cleared out early.
-            event.setMessage(processMessage(event.getRaw()));
+            event.setMessages(processMessage(event.getRaw()));
         } finally {
-            if (event.getMessage() != null) {
-                event.getMessage().recordTiming(serverStatus, "decode", context.stop());
+            if (event.getMessages() != null) {
+                for (Message message : event.getMessages()) {
+                    message.recordTiming(serverStatus, "decode", context.stop());
+                }
             }
             // aid garbage collection to collect the raw message early (to avoid promoting it to later generations).
             event.clearRaw();
         }
     }
 
-    private Message processMessage(RawMessage raw) throws ExecutionException {
+    private List<Message> processMessage(RawMessage raw) throws ExecutionException {
         if (raw == null) {
             LOG.warn("Ignoring null message");
             return null;
@@ -113,15 +118,17 @@ public class DecodingProcessor implements EventHandler<MessageEvent> {
         }
         final String baseMetricName = name(codec.getClass(), inputIdOnCurrentNode);
 
-        final Message message;
+        final List<Message> messages;
 
         // TODO Create parse times per codec as well. (add some more metrics too)
         final Timer.Context decodeTimeCtx = parseTime.time();
         final long decodeTime;
         try {
-            message = codec.decode(raw);
-            if (message != null) {
-                message.setJournalOffset(raw.getJournalOffset());
+            messages = MultiMessageAwareCodec.Helper.decode(codec, raw);
+            for (Message message : messages) {
+                if (message != null) {
+                    message.setJournalOffset(raw.getJournalOffset());
+                }
             }
         } catch (RuntimeException e) {
             metricRegistry.meter(name(baseMetricName, "failures")).mark();
@@ -129,19 +136,26 @@ public class DecodingProcessor implements EventHandler<MessageEvent> {
         } finally {
             decodeTime = decodeTimeCtx.stop();
         }
-
-        if (message == null) {
+        if (messages == null) {
             metricRegistry.meter(name(baseMetricName, "failures")).mark();
             return null;
         }
-        if (!message.isComplete()) {
-            metricRegistry.meter(name(baseMetricName, "incomplete")).mark();
-            if (LOG.isDebugEnabled()) {
-                LOG.debug("Dropping incomplete message. Parsed fields: [{}]", message.getFields());
+        for (Message message : messages) {
+            if (!message.isComplete()) {
+                metricRegistry.meter(name(baseMetricName, "incomplete")).mark();
+                if (LOG.isDebugEnabled()) {
+                    LOG.debug("Dropping incomplete message. Parsed fields: [{}]", message.getFields());
+                }
+                continue;
             }
-            return null;
+            final long averageDecodedTimePerOneMessage = decodeTime / messages.size();
+            decorateMessage(raw, codec, inputIdOnCurrentNode, averageDecodedTimePerOneMessage, message);
+            metricRegistry.meter(name(baseMetricName, "processedMessages")).mark();
         }
+        return messages;
+    }
 
+    private void decorateMessage(RawMessage raw, Codec codec, String inputIdOnCurrentNode, long decodeTime, Message message) {
         message.recordTiming(serverStatus, "parse", decodeTime);
 
         for (final RawMessage.SourceNode node : raw.getSourceNodes()) {
@@ -196,8 +210,5 @@ public class DecodingProcessor implements EventHandler<MessageEvent> {
         if (Strings.isNullOrEmpty(message.getSource())) {
             message.setSource("unknown");
         }
-
-        metricRegistry.meter(name(baseMetricName, "processedMessages")).mark();
-        return message;
     }
 }
